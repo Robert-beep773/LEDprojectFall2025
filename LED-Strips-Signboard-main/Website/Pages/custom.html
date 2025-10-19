@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K3 Scoreboard Control</title>
+	<link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/custom.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">
+            <h1>LED Strips Sign</h1>
+        </div>
+        <nav class="navbar">
+            <ul>
+                <li><a href="Dashboard.html">Text Input</a></li>
+                <li><a href="time.html">Timer</a></li>
+                <li><a href="custom.html" class="active">Custom</a></li>
+                <li><a href="settings.html">Settings</a></li>
+            </ul>
+        </nav>
+    </div>
+   
+    <div class="main-content">
+        <div class="content-header">
+            <h1>Custom</h1>
+            <p>Draw your own custom image (15×60 pixels)</p>
+        </div>
+        
+        <div class="pixel-board-container">
+            <div class="controls">
+                <input type="color" id="colorPicker" class="color-picker" value="#ffffff">
+                <button id="eraserBtn" class="button">Eraser</button>
+                <button id="clearBtn" class="button">Clear All</button>
+            </div>
+            
+            <div class="pixel-board" id="pixelBoard"></div>
+            
+            <div class="controls" style="margin-top: 15px;">
+                <button id="sendBtn" class="button button-primary ">Send to Display</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="../scripts/custom.js"></script>
+    <script src="../scripts/Dashboard.js"></script>
+</body>
+</html>

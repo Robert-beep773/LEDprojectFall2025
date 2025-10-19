@@ -1,0 +1,220 @@
+.settings-container 
+{
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 12px;
+    margin-top: 30px;
+}
+
+.settings-section 
+{
+    border-bottom: 1px solid #e1e5ee;
+    padding-bottom: 25px;
+}
+
+.settings-section:last-child 
+{
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.settings-section h2 
+{
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.brightness-container 
+{
+    width: 100%;
+    max-width: 600px;
+}
+
+.brightness-header 
+{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.brightness-value 
+{
+    font-size: 1.2rem;
+    font-weight: 500;
+    min-width: 60px;
+    text-align: right;
+}
+
+.brightness-slider 
+{
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: #e1e5ee;
+    outline: none;
+}
+
+.brightness-slider::-webkit-slider-thumb 
+{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #3E64B7;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+.brightness-slider::-webkit-slider-thumb:hover 
+{
+    background: #2A4A8F;
+    transform: scale(1.1);
+}
+
+.brightness-slider::-moz-range-thumb 
+{
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #3E64B7;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.brightness-slider::-moz-range-thumb:hover 
+{
+    background: #2A4A8F;
+    transform: scale(1.1);
+}
+
+.colour-settings 
+{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+}
+
+.colour-option 
+{
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.colour-option label 
+{
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.colour-preview 
+{
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.colour-picker 
+{
+    -webkit-appearance: none;
+    width: 60px;
+    height: 60px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.colour-picker::-webkit-color-swatch 
+{
+    border: none;
+    border-radius: 10px;
+    padding: 0;
+}
+
+.colour-picker::-webkit-color-swatch-wrapper 
+{
+    border: none;
+    border-radius: 10px;
+    padding: 0;
+}
+
+.colour-picker::-moz-color-swatch 
+{
+    border: none;
+    border-radius: 10px;
+}
+
+.colour-value 
+{
+    font-family: monospace;
+    font-size: 1rem;
+    background-color: #f5f7fa;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #e1e5ee;
+}
+
+.save-button 
+{
+    background-color: #3E64B7;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-self: flex-start;
+    margin-top: 20px;
+}
+
+.save-button:hover 
+{
+    background-color: #2A4A8F;
+}
+
+.tick-marks 
+{
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding: 0 12px;
+}
+
+.tick 
+{
+    position: relative;
+    width: 1px;
+    height: 10px;
+    background-color: #ccc;
+}
+
+.tick-label 
+{
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.8rem;
+    color: #888;
+}
+
+@media (max-width: 768px) 
+{
+    .colour-settings 
+    {
+        grid-template-columns: 1fr;
+    }
+}

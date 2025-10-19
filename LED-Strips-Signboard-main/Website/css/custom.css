@@ -1,0 +1,47 @@
+.pixel-board-container 
+{
+    margin-top: 20px;
+}
+
+.pixel-board 
+{
+    display: grid;
+    grid-template-columns: repeat(60, 15px);
+    grid-template-rows: repeat(15, 15px);
+    gap: 1px;
+    border: 1px solid #ccc;
+    background-color: #e0e0e0;
+    max-width: 960px;
+    overflow: auto;
+    margin-top: 20px;
+}
+
+.pixel 
+{
+    width: 15px;
+    height: 15px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    cursor: pointer;
+}
+
+.pixel.active 
+{
+    background-color: #000;
+}
+
+.controls 
+{
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.color-picker 
+{
+    width: 40px;
+    height: 40px;
+    border: none;
+    cursor: pointer;
+}

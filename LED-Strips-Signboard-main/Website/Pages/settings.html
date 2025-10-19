@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K3 Scoreboard Control</title>
+	<link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/settings.css">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">
+            <h1>LED Strips Sign</h1>
+        </div>
+        <nav class="navbar">
+            <ul>
+                <li><a href="Dashboard.html">Text Input</a></li>
+                <li><a href="time.html">Timer</a></li>
+                <li><a href="custom.html">Custom</a></li>
+                <li><a href="settings.html" class="active">Settings</a></li>
+            </ul>
+        </nav>
+    </div>
+   
+    <div class="main-content">
+        <div class="content-header">
+            <h1>Settings</h1>
+            <p>Configure the board's settings</p>
+        </div>
+       
+        <div class="settings-container">
+            <div class="settings-section">
+                <h2>Brightness Control</h2>
+                <div class="brightness-container">
+                    <div class="brightness-header">
+                        <span>Brightness</span>
+                        <span class="brightness-value">75%</span>
+                    </div>
+                    
+                    <input type="range" min="0" max="100" value="75" step="5" class="brightness-slider" id="brightnessSlider" onchange="handle_change(this.value)">
+                    
+                    <div class="tick-marks">
+                        <div class="tick"><span class="tick-label">0%</span></div>
+                        <div class="tick"><span class="tick-label">25%</span></div>
+                        <div class="tick"><span class="tick-label">50%</span></div>
+                        <div class="tick"><span class="tick-label">75%</span></div>
+                        <div class="tick"><span class="tick-label">100%</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h2>Text Colour Settings</h2>
+                <div class="colour-settings">
+                    <div class="colour-option">
+                        <label for="topTextcolour">Top Text Colour</label>
+                        <div class="colour-preview">
+                            <input type="color" id="topTextcolour" class="colour-picker" value="#FF5757">
+                            <span class="colour-value" id="topTextcolourValue">#FF5757</span>
+                        </div>
+                    </div>
+                    
+                    <div class="colour-option">
+                        <label for="bottomTextcolour">Bottom Text Colour</label>
+                        <div class="colour-preview">
+                            <input type="color" id="bottomTextcolour" class="colour-picker" value="#3E64B7">
+                            <span class="colour-value" id="bottomTextcolourValue">#3E64B7</span>
+                        </div>
+                    </div>
+                    
+                    <div class="colour-option">
+                        <label for="fullScreenTextcolour">Full Screen Text Colour</label>
+                        <div class="colour-preview">
+                            <input type="color" id="fullScreenTextcolour" class="colour-picker" value="#00FF00">
+                            <span class="colour-value" id="fullScreenTextcolourValue">#00FF00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="send_settings()" class="save-button" id="saveSettings">Save Settings</button>
+        </div>
+    </div>
+
+    <script src="../scripts/Dashboard.js"></script>
+</body>
+</html>
