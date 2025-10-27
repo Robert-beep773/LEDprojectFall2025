@@ -47,19 +47,9 @@ else
 }
 }while($true)
 
-do
-{
-    $baudRate = Read-Host "Enter Baud Rate"
-    if ([string]::IsNullOrWhiteSpace($baudRate) -or $baudRate -match '\D')
-    {
-        Write-Host "Enter a valid Baud rate"
-    }
-else
-{
-    break
-}
-
-}while($true)
+# Fixed baud rate for stability
+$baudRate = 9600
+Write-Host "Using fixed baud rate: $baudRate"
 
 $url = "http://127.0.0.1:$server_port/";
 $http.Prefixes.Add($url);
@@ -86,7 +76,82 @@ function Add-CorsHeaders($response)
     $response.AppendHeader("Access-Control-Allow-Origin", "*")
     $response.AppendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     $response.AppendHeader("Access-Control-Allow-Headers", "Content-Type")
+}
 
+# Function to convert JSON data to ASCII protocol format
+function ConvertTo-AsciiProtocol($jsonData)
+{
+    $startChar = [char]12  # ASCII 12
+    $endChar = [char]15    # ASCII 15
+    
+    switch ($jsonData.command)
+    {
+        "static" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1002" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1001" + $jsonData.data + "$endChar"
+            }
+        }
+        "scrolC" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1004" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1003" + $jsonData.data + "$endChar"
+            }
+        }
+        "scrolS" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1006" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1005" + $jsonData.data + "$endChar"
+            }
+        }
+        "fadeIn" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1008" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1007" + $jsonData.data + "$endChar"
+            }
+        }
+        "breath" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1010" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1009" + $jsonData.data + "$endChar"
+            }
+        }
+        "sTimer" {
+            return "$startChar" + "2001" + $jsonData.data + "$endChar"
+        }
+        "pTimer" {
+            return "$startChar" + "2002" + "$endChar"
+        }
+        "rTimer" {
+            return "$startChar" + "2004" + "$endChar"
+        }
+        "resume" {
+            return "$startChar" + "2003" + "$endChar"
+        }
+        "tod" {
+            return "$startChar" + "2006" + "$endChar"
+        }
+        "settns" {
+            $settings = $jsonData.brightness + "," + $jsonData.tcolor + "," + $jsonData.bcolor + "," + $jsonData.fcolor
+            return "$startChar" + "3005" + $settings + "$endChar"
+        }
+        "custom" {
+            if ($jsonData.param -eq "start") {
+                return "$startChar" + "4002" + "$endChar"  # Clear all pixels first
+            }
+            # Parse custom pixel data
+            $pixelData = $jsonData.data -replace '[()]', '' -replace '#', ''
+            return "$startChar" + "4001" + $pixelData + "$endChar"
+        }
+        default {
+            return "$startChar" + "5001" + "$endChar"  # System status request
+        }
+    }
 }
 
 # Main loop
@@ -101,53 +166,23 @@ while ($http.IsListening)
         continue
     }
     
-    # Handle POST requests to /dashboard/post
+# Handle POST requests to /dashboard/post
     if ($context.Request.HttpMethod -eq 'POST' -and $context.Request.RawUrl -eq '/dashboard/post') {
         $FormContent = [System.IO.StreamReader]::new($context.Request.InputStream).ReadToEnd()
         $dataToSend = $FormContent | ConvertFrom-Json
-        $data = ''
-        if($dataToSend.command -eq "pTimer")
-        {
-            $data = "$" + $dataToSend.command + "$"
-        }
-        elseif($dataToSend.command -eq "rTimer")
-        {
-            $data =  "$" + $dataToSend.command  + "$"
-        }
-        elseif($dataToSend.command -eq "resume")
-        {
-            $data = "$" + $dataToSend.command + "$"
-        }
-        elseif($dataToSend.command -eq "tod")
-        {
-            $data =  "$" + $dataToSend.command + "$"
-        }
-        elseif($dataToSend.command -eq "settns")
-        {
-            $data =  "$" + $dataToSend.command + "$" +  "[" + $dataToSend.brightness + ", " +  $dataToSend.tcolor + ", " +  $dataToSend.bcolor + ", " + $dataToSend.fcolor + "]"
-        }
-        elseif($dataToSend.command -eq "custom")
-        {
-            $data =  "$" + $dataToSend.command + "$" + $dataToSend.param + "[" + $dataToSend.data + "]"
-        }
-        else
-        {
-            $data = "$" + $dataToSend.command + "$" + $dataToSend.isBig + "[" + $dataToSend.data + "]"
-        }
-     
+        
+        # Convert JSON to new ASCII protocol format
+        $asciiCommand = ConvertTo-AsciiProtocol -jsonData $dataToSend
+        
         try
         {                                                                                                                      
-            # $sw = [System.Diagnostics.Stopwatch]::StartNew()
-            $out_port_a.WriteLine($data)
-            Write-Host $data
+            $out_port_a.WriteLine($asciiCommand)
+            Write-Host "Sent: $asciiCommand"
             Start-Sleep -Milliseconds 200
-            #$sw.Stop()
-
-            # Write-Host "Execution Time: $($sw.ElapsedMilliseconds) ms"
         }
         catch
         {
-            Write-Host "The port timed out, restart the server or wait for a while and than send omwthing else"
+            Write-Host "The port timed out, restart the server or wait for a while and than send something else"
             $out_port_a.DiscardOutBuffer() # Discard the Output Buffer so as to remove backlog
             Start-Sleep -Milliseconds 300
         }

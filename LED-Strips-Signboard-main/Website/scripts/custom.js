@@ -194,37 +194,43 @@ document.addEventListener('DOMContentLoaded', function()
             sendBtn.disabled = false;           
             sendBtn.style.cursor = "pointer";
         }, 5000);
+        
         let f_list = Array.from(drawnPixels);
-        if (f_list.length > 15) {
-            for (let i = 0; i < f_list.length; i += 15) {
-                let chunk = f_list.slice(i, i + 15).join(',');
-                await fetch(`${API_URL}/dashboard/post`, {
+        
+        // First, clear all pixels using ASCII protocol
+        await fetch(`${API_URL}/dashboard/post`, {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                "command": "custom",
+                "param": "start",
+                "data": ""
+            })
+        });
+        
+        // Then send pixel data in chunks
+        if (f_list.length > 0) {
+            for (let i = 0; i < f_list.length; i += 10) { // Send 10 pixels at a time
+                let chunk = f_list.slice(i, i + 10);
+                for (let pixel of chunk) {
+                    // Parse pixel data: (row,col,color) -> row,col,color
+                    let pixelData = pixel.replace(/[()]/g, '').replace('#', '');
+                    await fetch(`${API_URL}/dashboard/post`, {
                         method: 'POST',
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             "command": "custom",
-                            "param": i === 0 ? "start" : "no",
-                            "data": chunk
+                            "param": "pixel",
+                            "data": pixelData
                         })
-                });
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 200)); // Longer delay for Arduino stability
+                }
+                await new Promise(resolve => setTimeout(resolve, 800)); // Longer delay between chunks
             }
-            } else {
-            setTimeout(() => {
-                sendBtn.disabled = false;
-                sendBtn.style.cursor = "pointer";
-            }, 3000);
-            await fetch(`${API_URL}/dashboard/post`, {
-                method: 'POST',
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    "command": "custom",
-                    "param": "start",
-                    "data": f_list
-                })
-            });
-            await new Promise(resolve => setTimeout(resolve, 2000));
         }
+        
+        console.log("Custom pixels sent using ASCII protocol");
     });
     
     // Initialize board

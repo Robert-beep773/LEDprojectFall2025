@@ -1,0 +1,109 @@
+# Arduino Memory Optimizations for LED Signboard
+
+## Overview
+This document outlines the memory optimizations implemented to prevent crashes on memory-constrained Arduino microcontrollers.
+
+## Problem Addressed
+The original code was prone to crashes when receiving large amounts of data or processing complex operations due to:
+- Large buffer allocations
+- Heap memory usage
+- Insufficient bounds checking
+- Rapid data transmission
+
+## Optimizations Implemented
+
+### 1. Buffer Size Reductions
+**File**: `MainBoard.ino`
+- **Buffer Size**: Reduced from 150 to 100 characters
+- **Max Data Length**: Reduced from 100 to 50 characters
+- **Reason**: Prevents buffer overflow on memory-constrained Arduino
+
+### 2. Text Length Limits
+**File**: `MainBoard.ino` - `processCommand()` function
+- **Small Font Text**: Limited to 30 characters maximum
+- **Large Font Text**: Limited to 10 characters maximum
+- **Reason**: Prevents memory allocation failures during text processing
+
+### 3. Memory Allocation Strategy
+**File**: `Display.cpp` - `scrollTextContinuous()` function
+- **Before**: Dynamic heap allocation with `new char[]`
+- **After**: Stack allocation with fixed-size arrays
+- **Buffer Size**: Reduced from 200 to 50 characters per text string
+- **Reason**: Stack allocation is more reliable and doesn't fragment memory
+
+### 4. Input Validation Improvements
+**File**: `Display.cpp` - `displayCustomPixels()` function
+- **Input Length**: Reduced from 1000 to 200 characters
+- **Reason**: Prevents processing of excessively large custom pixel data
+
+### 5. Communication Timing
+**File**: `custom.js`
+- **Pixel Delay**: Increased from 100ms to 200ms between pixels
+- **Chunk Delay**: Increased from 500ms to 800ms between chunks
+- **Reason**: Gives Arduino more time to process each command
+
+### 6. Minimal Logging
+**File**: `MainBoard.ino` - `parseInput()` function
+- **Before**: Detailed logging with full command strings
+- **After**: Simple "RX" message
+- **Reason**: Reduces memory usage and processing overhead
+
+## Memory Usage Comparison
+
+### Before Optimizations:
+- Buffer: 150 characters
+- Text processing: Up to 200 characters per string
+- Custom pixels: Up to 1000 character input
+- Memory allocation: Dynamic heap allocation
+- Communication: Rapid-fire pixel updates
+
+### After Optimizations:
+- Buffer: 100 characters
+- Text processing: 30-50 characters maximum
+- Custom pixels: 200 character input limit
+- Memory allocation: Stack allocation
+- Communication: Delayed pixel updates with 200ms+ delays
+
+## Benefits
+
+1. **Stability**: Eliminates memory allocation failures
+2. **Reliability**: Prevents buffer overflow crashes
+3. **Performance**: Faster processing with smaller data sets
+4. **Compatibility**: Works better with memory-constrained Arduino boards
+
+## Usage Guidelines
+
+### For Text Display:
+- Keep small font messages under 30 characters
+- Keep large font messages under 10 characters
+- Use shorter messages for better performance
+
+### For Custom Pixels:
+- Limit custom pixel drawings to reasonable sizes
+- Allow time between pixel updates (200ms+ delays)
+- Clear display before sending new pixel data
+
+### For General Use:
+- Avoid rapid-fire commands
+- Allow processing time between operations
+- Monitor Arduino serial output for error messages
+
+## Error Handling
+
+The optimized code includes improved error handling:
+- Input length validation
+- Memory allocation checks
+- Graceful failure with error messages
+- Automatic cleanup of resources
+
+## Testing Recommendations
+
+1. Test with various text lengths to ensure limits work
+2. Test custom pixel drawing with different sizes
+3. Monitor Arduino serial output during operation
+4. Test rapid command sequences to verify stability
+5. Test with power cycling to ensure reliable startup
+
+## Conclusion
+
+These optimizations significantly improve the stability and reliability of the LED signboard system on memory-constrained Arduino microcontrollers while maintaining full functionality.

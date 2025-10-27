@@ -11,7 +11,6 @@ async function sendMessage()
 	let isBig = document.querySelector('input[name="isBig"]:checked').value;
     let send = document.getElementById("btn_send");
 
-
 	if (isBig === "no")
 	{
 			message = message + "," + message2;
@@ -34,6 +33,8 @@ async function sendMessage()
 			send.disabled = false;
 			send.style.cursor = "pointer";
 		}, 3000);
+		
+		// Send using new ASCII protocol format
 		const response = await fetch(`${API_URL}/dashboard/post`,
 		{
 			method: 'POST',
@@ -50,7 +51,10 @@ async function sendMessage()
 		{
 			alert("Failed to connect");
 		}
-
+		else
+		{
+			console.log("Message sent successfully using ASCII protocol");
+		}
 	}
 }
 
@@ -91,7 +95,11 @@ async function start_timer()
 
     if(sflag)
 	{
-		const message = minutes + ":" + seconds;
+		// Format time as MM:SS for ASCII protocol
+		const formattedMinutes = minutes.padStart(2, '0');
+		const formattedSeconds = seconds.padStart(2, '0');
+		const message = formattedMinutes + ":" + formattedSeconds;
+		
 		s_timer.disabled = true;
 		s_timer.style.cursor = "not-allowed";
 		setTimeout(function()
@@ -99,6 +107,7 @@ async function start_timer()
 			s_timer.disabled = false;
 			s_timer.style.cursor = "pointer";
 		}, 3000);
+		
 		const response = await fetch(`${API_URL}/dashboard/post`,
 		{
 			method: 'POST',
@@ -107,15 +116,18 @@ async function start_timer()
 			{
 				"command": "sTimer",
 				"isBig": "yes",
-				"data": message.toString()
+				"data": message
 			})
 		});
 	
 		if (response.status != 200)
 		{
-			alert('Failed to send message');
+			alert('Failed to send timer command');
 		}
-
+		else
+		{
+			console.log("Timer started using ASCII protocol: " + message);
+		}
 	}
 }
 
@@ -240,6 +252,12 @@ async function send_settings()
 		set_btn.disabled = false;
 		set_btn.style.cursor = "pointer";
 	}, 3000);
+	
+	// Convert hex colors to RRGGBB format (remove #)
+	const topColorHex = top_color.replace('#', '');
+	const bottomColorHex = bottom_color.replace('#', '');
+	const fullColorHex = full_text_color.replace('#', '');
+	
 	const response = await fetch(`${API_URL}/dashboard/post`,
 	{
 		method: 'POST',
@@ -248,18 +266,20 @@ async function send_settings()
 		{
 			"command": "settns",
 			"brightness": actual_brightness_value,
-			"tcolor": top_color,
-			"bcolor": bottom_color,
-			"fcolor": full_text_color,
+			"tcolor": topColorHex,
+			"bcolor": bottomColorHex,
+			"fcolor": fullColorHex,
 		})
 	});
 
 	if (response.status != 200)
 	{
-		alert('Failed to send message');
+		alert('Failed to send settings');
 	}
-
-	
+	else
+	{
+		console.log("Settings sent using ASCII protocol");
+	}
 }
 
 function handle_change(val)

@@ -1,0 +1,100 @@
+LED STRIPS SIGNBOARD - COMMUNICATION PROTOCOL DOCUMENTATION
+================================================================
+
+PROTOCOL FORMAT: [START][COMMAND][DATA][END]
+- START: ASCII code 12 (0x0C)
+- COMMAND: 4-digit ASCII code
+- DATA: Variable length message
+- END: ASCII code 15 (0x0F)
+
+EXAMPLE: 125001Hello15
+- 12: Start marker
+- 5001: Command code for "scroll fast"
+- Hello: Data to display
+- 15: End marker
+
+COMMAND CODES REFERENCE:
+========================
+
+TEXT DISPLAY COMMANDS:
+----------------------
+1001 - Static Text (Small Font - Two Rows)
+1002 - Static Text (Large Font - Single Row)
+1003 - Scroll Text Continuous (Small Font)
+1004 - Scroll Text Continuous (Large Font)
+1005 - Scroll Text and Stop (Small Font)
+1006 - Scroll Text and Stop (Large Font)
+1007 - Fade In Text (Small Font)
+1008 - Fade In Text (Large Font)
+1009 - Breathe Text (Small Font)
+1010 - Breathe Text (Large Font)
+
+TIMER COMMANDS:
+--------------
+2001 - Start Timer (Format: MM:SS)
+2002 - Pause Timer
+2003 - Resume Timer
+2004 - Reset Timer
+2005 - Stop Timer
+2006 - Display Time of Day
+
+SETTINGS COMMANDS:
+-----------------
+3001 - Set Brightness (0-255)
+3002 - Set Top Text Color (Hex format)
+3003 - Set Bottom Text Color (Hex format)
+3004 - Set Full Text Color (Hex format)
+3005 - Set All Settings (Brightness,Top,Bottom,Full)
+
+CUSTOM PIXEL COMMANDS:
+---------------------
+4001 - Set Custom Pixel (Format: X,Y,Color)
+4002 - Clear All Pixels
+4003 - Clear Custom Pixel (Format: X,Y)
+
+SYSTEM COMMANDS:
+---------------
+5001 - System Status Request
+5002 - System Reset
+5003 - Clear Display
+5004 - Default Message
+
+ERROR CODES:
+-----------
+9001 - Invalid Command
+9002 - Invalid Data Format
+9003 - Buffer Overflow
+9004 - Communication Timeout
+9005 - Hardware Error
+
+RESPONSE FORMATS:
+================
+SUCCESS: [START][COMMAND][OK][END]
+ERROR: [START][ERROR_CODE][MESSAGE][END]
+
+DATA FORMATS:
+============
+Timer Data: MM:SS (e.g., "05:30")
+Color Data: RRGGBB (e.g., "FF0000" for red)
+Pixel Data: X,Y,RRGGBB (e.g., "10,5,FF0000")
+Settings Data: Brightness,TopColor,BottomColor,FullColor (comma separated)
+
+IMPLEMENTATION NOTES:
+====================
+- All commands must start with ASCII 12 and end with ASCII 15
+- Command codes are always 4 digits
+- Data is optional for some commands
+- Maximum data length: 100 characters
+- Baud rate: Fixed at 9600
+- Serial timeout: 1000ms
+- Buffer size: 150 characters (increased from 90)
+
+EXAMPLES:
+========
+Static text: 121001Hello World15
+Scroll text: 121003Hello World15
+Start timer: 12200105:3015
+Set brightness: 12300112815
+Custom pixel: 12400110,5,FF000015
+System status: 12500115
+Error response: 129001Invalid Command15

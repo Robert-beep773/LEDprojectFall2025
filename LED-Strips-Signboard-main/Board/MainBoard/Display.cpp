@@ -342,10 +342,20 @@ void Display::scrollTextContinuous(const char* text1, const char* text2, int tot
 
   scrollInterrupt = false;
 
-  char* text1Copy = new char[text1Len + 1];
-  char* text2Copy = new char[text2Len + 1];
-  strcpy(text1Copy, text1);
-  strcpy(text2Copy, text2);
+  // Memory-optimized bounds checking for Arduino
+  if (text1Len > 50 || text2Len > 50) {
+    Serial.println("Error: Text too long");
+    return;
+  }
+
+  // Use stack allocation instead of heap for stability
+  char text1Copy[51];  // +1 for null terminator
+  char text2Copy[51];
+  
+  strncpy(text1Copy, text1, 50);
+  strncpy(text2Copy, text2, 50);
+  text1Copy[50] = '\0';
+  text2Copy[50] = '\0';
 
   unsigned long previousMillis = 0;
 
@@ -419,8 +429,7 @@ void Display::scrollTextContinuous(const char* text1, const char* text2, int tot
     delay(1);
   }
 
-  delete[] text1Copy;
-  delete[] text2Copy;
+  // Stack allocated arrays - no cleanup needed
 }
 
 // Breathing implementation
@@ -624,14 +633,25 @@ void Display::displayCustomPixels(const char* input, const char* chunkPos)
   if (strcmp(chunkPos, "start") == 0)
   {
     clearBuffer(true);
+    updateLEDs();
+    return;
   }
   
   // Print chunk position for debugging
   Serial.println(chunkPos);
   
+  // Validate input length for memory-constrained Arduino
+  if (strlen(input) > 200) {
+    Serial.println("Error: Input too long");
+    return;
+  }
+  
   // Find the opening bracket
   const char* start = strchr(input, '[');
-  if (!start) return; // Exit if no opening bracket found
+  if (!start) {
+    Serial.println("Error: No opening bracket found");
+    return;
+  }
   start++; // Move past the opening bracket
   
   // Process each coordinate pair
