@@ -26,7 +26,7 @@ bool dataToSend = false;
 const char PROTOCOL_START = 12;  // 0x0C
 const char PROTOCOL_END = 15;    // 0x0F
 const int COMMAND_LENGTH = 4;
-const int MAX_DATA_LENGTH = 50;  // Reduced for stability
+const int MAX_DATA_LENGTH = 150;  // Increased to support long scroll text (120 chars + overhead)
 
 Display& display = Display::getInstance();
 //Display d;
@@ -51,12 +51,17 @@ void setup()
 
 void loop()
 {
+  // Check for Serial commands first (listening device priority)
   if (Serial.available())
   {
     String input = Serial.readStringUntil('\n');  // Read until newline
     parseInput(input);
   }
 
+  // Update display animations (non-blocking scroll)
+  display.updateDisplay();
+  
+  // Update other subsystems
   remote.useRemote();
   timer.updateTimer();
 }
@@ -103,10 +108,16 @@ void processCommand(String cmd, String data)
     switch (cmdCode)
     {
         // TEXT DISPLAY COMMANDS - Memory optimized
-        case 1001: // Static Text (Small Font)
-            if (data.length() > 30) data = data.substring(0, 30); // Limit length
-            displayText(data, "", "static", "no");
-            sendSuccessResponse(cmd);
+        case 1001: // Static Text (Small Font) - Split by comma for top/bottom rows
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 30) text1 = text1.substring(0, 30);
+                if (text2.length() > 30) text2 = text2.substring(0, 30);
+                displayText(text1, text2, "static", "no");
+                sendSuccessResponse(cmd);
+            }
             break;
             
         case 1002: // Static Text (Large Font)
@@ -115,34 +126,54 @@ void processCommand(String cmd, String data)
             sendSuccessResponse(cmd);
             break;
             
-        case 1003: // Scroll Text Continuous (Small Font)
-            if (data.length() > 30) data = data.substring(0, 30);
-            displayText(data, "", "scrolC", "no");
-            sendSuccessResponse(cmd);
+        case 1003: // Scroll Text Continuous (Small Font) - Split by comma for top/bottom rows
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 120) text1 = text1.substring(0, 120);
+                if (text2.length() > 120) text2 = text2.substring(0, 120);
+                displayText(text1, text2, "scrolC", "no");
+                sendSuccessResponse(cmd);
+            }
             break;
             
         case 1004: // Scroll Text Continuous (Large Font)
-            if (data.length() > 10) data = data.substring(0, 10);
+            // Allow longer text for scrolling (120 chars)
+            if (data.length() > 120) data = data.substring(0, 120);
             displayText(data, "", "scrolC", "yes");
             sendSuccessResponse(cmd);
             break;
             
-        case 1005: // Scroll Text and Stop (Small Font)
-            if (data.length() > 30) data = data.substring(0, 30);
-            displayText(data, "", "scrolS", "no");
-            sendSuccessResponse(cmd);
+        case 1005: // Scroll Text and Stop (Small Font) - Split by comma for top/bottom rows
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 120) text1 = text1.substring(0, 120);
+                if (text2.length() > 120) text2 = text2.substring(0, 120);
+                displayText(text1, text2, "scrolS", "no");
+                sendSuccessResponse(cmd);
+            }
             break;
             
         case 1006: // Scroll Text and Stop (Large Font)
-            if (data.length() > 10) data = data.substring(0, 10);
+            // Allow longer text for scrolling (120 chars)
+            if (data.length() > 120) data = data.substring(0, 120);
             displayText(data, "", "scrolS", "yes");
             sendSuccessResponse(cmd);
             break;
             
-        case 1007: // Fade In Text (Small Font)
-            if (data.length() > 30) data = data.substring(0, 30);
-            displayText(data, "", "fadeIn", "no");
-            sendSuccessResponse(cmd);
+        case 1007: // Fade In Text (Small Font) - Split by comma for top/bottom rows
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 30) text1 = text1.substring(0, 30);
+                if (text2.length() > 30) text2 = text2.substring(0, 30);
+                displayText(text1, text2, "fadeIn", "no");
+                sendSuccessResponse(cmd);
+            }
             break;
             
         case 1008: // Fade In Text (Large Font)
@@ -151,10 +182,16 @@ void processCommand(String cmd, String data)
             sendSuccessResponse(cmd);
             break;
             
-        case 1009: // Breathe Text (Small Font)
-            if (data.length() > 30) data = data.substring(0, 30);
-            displayText(data, "", "breath", "no");
-            sendSuccessResponse(cmd);
+        case 1009: // Breathe Text (Small Font) - Split by comma for top/bottom rows
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 30) text1 = text1.substring(0, 30);
+                if (text2.length() > 30) text2 = text2.substring(0, 30);
+                displayText(text1, text2, "breath", "no");
+                sendSuccessResponse(cmd);
+            }
             break;
             
         case 1010: // Breathe Text (Large Font)

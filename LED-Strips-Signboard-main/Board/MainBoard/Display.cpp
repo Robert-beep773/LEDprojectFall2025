@@ -31,6 +31,19 @@ Display::Display()
       frameBuffer[i][j] = 0;
     }
   }
+  
+  // Initialize scroll state
+  scrollState.isActive = false;
+  scrollState.useBigFont = false;
+  scrollState.previousMillis = 0;
+  scrollState.shift = 0;
+  scrollState.scrollSpeed = 100;
+  scrollState.totalWidth = 0;
+  scrollState.text1Len = 0;
+  scrollState.text2Len = 0;
+  scrollState.longerTextLen = 0;
+  scrollState.text1Copy[0] = '\0';
+  scrollState.text2Copy[0] = '\0';
 }
 
 // Initialize LED Matrix
@@ -103,6 +116,9 @@ void Display::setPixel(int x, int y, uint32_t color)
 }
 //HERE IS THE NEW SPACING FUNCTION
 bool Display::needsSpacing(char current, char next, bool useBigFont) {
+  // Don't add extra spacing around space characters - they already have their own width
+  if (current == ' ' || next == ' ') return false;
+  
   int currentIndex = useBigFont ? getCharIndex15x15(current) : getCharIndex(current);
   int nextIndex    = useBigFont ? getCharIndex15x15(next)    : getCharIndex(next);
   if (currentIndex == -1 || nextIndex == -1) return true;
@@ -145,6 +161,9 @@ bool Display::needsSpacing(char current, char next, bool useBigFont) {
 
 int Display::getCharacterWidth7x7(char c)
 {
+  // Handle space character specially - return spacing width
+  if (c == ' ') return 4;  // 4 pixels for space in small font
+  
   int index = getCharIndex(c);
   if (index == -1) return 0;  // Return 0 if character not found
 
@@ -168,6 +187,9 @@ int Display::getCharacterWidth7x7(char c)
 
 int Display::getCharacterWidth15x15(char c)
 {
+  // Handle space character specially - return spacing width
+  if (c == ' ') return 8;  // 8 pixels for space in large font
+  
   int index = getCharIndex15x15(c);
   if (index == -1) return 0;  // Return 0 if character not found
 
@@ -195,6 +217,9 @@ int Display::getCharacterWidth15x15(char c)
 
 void Display::drawCharacter7x7(char c, int x, int y, uint32_t color)
 {
+  // Handle space character - skip drawing but width is already accounted for
+  if (c == ' ') return;
+  
   int index = getCharIndex(c);
   if (index == -1) return;
 
@@ -233,6 +258,9 @@ void Display::drawCharacter7x7(char c, int x, int y, uint32_t color)
 
 void Display::drawCharacter15x15(char c, int x, int y, uint32_t color)
 {
+  // Handle space character - skip drawing but width is already accounted for
+  if (c == ' ') return;
+  
   int index = getCharIndex15x15(c);
   if (index == -1)
     return;
@@ -279,6 +307,12 @@ void Display::drawCharacter15x15(char c, int x, int y, uint32_t color)
 void Display::displayText(const char* text1, const char* text2, const char* command, const char* displayType)
 {
   bool useBigFont = (strcmp(displayType, "yes") == 0);
+  
+  // Stop any active scroll when new command arrives
+  if (scrollState.isActive) {
+    stopScrollAnimation();
+  }
+  
   clearBuffer(useBigFont);
 
   int text1Len = strlen(text1);
@@ -289,17 +323,17 @@ void Display::displayText(const char* text1, const char* text2, const char* comm
   
   if (strcmp(command, "scrolC") == 0)
   {
-    // Continuous scrolling implementation
+    // Continuous scrolling implementation (non-blocking)
     scrollTextContinuous(text1, text2, totalWidth, useBigFont);
   }
   else if (strcmp(command, "scrolS") == 0)
   {
-    // Scroll from right then stop at the left
+    // Scroll from right then stop at the left (blocking but short)
     scrollTextAndStop(text1, text2, totalWidth, useBigFont);
   }
   else if (strcmp(command, "fadeIn") == 0)
   {
-    // Fade in text effect
+    // Fade in text effect (blocking but short)
     fadeInText(text1, text2, useBigFont);
   }
   else if (strcmp(command, "static") == 0)
@@ -309,8 +343,16 @@ void Display::displayText(const char* text1, const char* text2, const char* comm
   }
   else if (strcmp(command, "breath") == 0)
   {
-    // Static display implementation
+    // Breathing text (blocking but should be made non-blocking too)
     breatheText(text1, text2, useBigFont);
+  }
+}
+
+// Update display animations - call this from main loop
+void Display::updateDisplay()
+{
+  if (scrollState.isActive) {
+    updateScrollAnimation();
   }
 }
 
@@ -331,105 +373,136 @@ int Display::calculateTextWidth(const char* text, bool useBigFont)
   return totalWidth;
 }
 
-// Continuous scrolling implementation
+// Continuous scrolling implementation - NON-BLOCKING
+// Initializes scroll state and returns immediately
 void Display::scrollTextContinuous(const char* text1, const char* text2, int totalWidth, bool useBigFont)
 {
-  int scrollSpeed = 100;
   int text1Len = strlen(text1);
   int text2Len = strlen(text2);
-  int longerTextLen = (text1Len > text2Len) ? text1Len : text2Len;
-  int shift = 0;
-
-  scrollInterrupt = false;
-
+  
   // Memory-optimized bounds checking for Arduino
-  if (text1Len > 50 || text2Len > 50) {
+  if (text1Len > 120 || text2Len > 120) {
     Serial.println("Error: Text too long");
     return;
   }
 
-  // Use stack allocation instead of heap for stability
-  char text1Copy[51];  // +1 for null terminator
-  char text2Copy[51];
+  // Stop any existing scroll
+  stopScrollAnimation();
   
-  strncpy(text1Copy, text1, 50);
-  strncpy(text2Copy, text2, 50);
-  text1Copy[50] = '\0';
-  text2Copy[50] = '\0';
+  // Initialize scroll state
+  scrollState.isActive = true;
+  scrollState.useBigFont = useBigFont;
+  scrollState.previousMillis = millis();
+  scrollState.shift = 0;
+  scrollState.scrollSpeed = 100;
+  scrollState.totalWidth = totalWidth;
+  scrollState.text1Len = text1Len;
+  scrollState.text2Len = text2Len;
+  scrollState.longerTextLen = (text1Len > text2Len) ? text1Len : text2Len;
+  
+  // Copy text strings
+  strncpy(scrollState.text1Copy, text1, 120);
+  strncpy(scrollState.text2Copy, text2, 120);
+  scrollState.text1Copy[120] = '\0';
+  scrollState.text2Copy[120] = '\0';
+  
+  // Draw first frame immediately
+  updateScrollAnimation();
+}
 
-  unsigned long previousMillis = 0;
-
-  while (!scrollInterrupt)
+// Non-blocking scroll animation update - call from main loop
+void Display::updateScrollAnimation()
+{
+  if (!scrollState.isActive) return;
+  
+  // Check for Serial interrupt first (listening device requirement)
+  if (Serial.available() > 0)
   {
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= scrollSpeed)
+    stopScrollAnimation();
+    // Clear Serial buffer to prevent command confusion
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+    return;
+  }
+  
+  unsigned long currentMillis = millis();
+  
+  // Check if it's time to update the frame
+  if (currentMillis - scrollState.previousMillis >= scrollState.scrollSpeed)
+  {
+    scrollState.previousMillis = currentMillis;
+    clearBuffer(scrollState.useBigFont);
+    
+    // Use modulo to prevent overflow and create seamless loop
+    unsigned long effectiveShift = scrollState.shift % (scrollState.totalWidth + NUMPIXELS);
+    int currentX = NUMPIXELS - (int)effectiveShift;
+
+    for (int i = 0; i < scrollState.longerTextLen; i++)
     {
-      previousMillis = currentMillis;
-      clearBuffer(useBigFont);
-      int effectiveShift = shift % (totalWidth + NUMPIXELS);
-      int currentX = NUMPIXELS - effectiveShift;
+      int charWidth = scrollState.useBigFont ? 
+        getCharacterWidth15x15(scrollState.text1Copy[i]) :
+        getCharacterWidth7x7((scrollState.text1Len > scrollState.text2Len) ? 
+          scrollState.text1Copy[i] : scrollState.text2Copy[i]);
 
-      for (int i = 0; i < longerTextLen; i++)
+      if (currentX >= -charWidth && currentX < NUMPIXELS)
       {
-        int charWidth = useBigFont ? getCharacterWidth15x15(text1Copy[i])
-                                   : getCharacterWidth7x7((text1Len > text2Len) ? text1Copy[i] : text2Copy[i]);
-
-        if (currentX >= -charWidth && currentX < NUMPIXELS)
-        {
-          if (useBigFont)
-            drawCharacter15x15(text1Copy[i], currentX, 1, currentFullColourHex);
-          else
-          {
-            if (i < text1Len) drawCharacter7x7(text1Copy[i], currentX, 0, currentTopColourHex);
-            if (i < text2Len) drawCharacter7x7(text2Copy[i], currentX, 8, currentBottomColourHex);
-          }
-        }
-
-        // second draw for seamless loop
-        int loopX = currentX + totalWidth + NUMPIXELS;
-        if (loopX >= 0 && loopX < NUMPIXELS * 2)
-        {
-          if (useBigFont)
-            drawCharacter15x15(text1Copy[i], loopX, 1, currentFullColourHex);
-          else
-          {
-            if (i < text1Len) drawCharacter7x7(text1Copy[i], loopX, 0, currentTopColourHex);
-            if (i < text2Len) drawCharacter7x7(text2Copy[i], loopX, 8, currentBottomColourHex);
-          }
-        }
-
-        // spacing logic
-        currentX += charWidth;
-        if (useBigFont)
-        {
-          if (i + 1 < text1Len && needsSpacing(text1Copy[i], text1Copy[i + 1], true))
-            currentX += 1;
-        }
+        if (scrollState.useBigFont)
+          drawCharacter15x15(scrollState.text1Copy[i], currentX, 1, currentFullColourHex);
         else
         {
-          bool spaced = false;
-          if (i + 1 < text1Len && needsSpacing(text1Copy[i], text1Copy[i + 1], false))
-            spaced = true;
-          if (i + 1 < text2Len && needsSpacing(text2Copy[i], text2Copy[i + 1], false))
-            spaced = true;
-          if (spaced)
-            currentX += 1;
+          if (i < scrollState.text1Len) drawCharacter7x7(scrollState.text1Copy[i], currentX, 0, currentTopColourHex);
+          if (i < scrollState.text2Len) drawCharacter7x7(scrollState.text2Copy[i], currentX, 8, currentBottomColourHex);
         }
       }
 
-      updateLEDs();
-      shift++;
-
-      if (Serial.available() > 0)
+      // Second draw for seamless loop
+      int loopX = currentX + scrollState.totalWidth + NUMPIXELS;
+      if (loopX >= 0 && loopX < NUMPIXELS * 2)
       {
-        clearBuffer(useBigFont);
-        scrollInterrupt = true;
+        if (scrollState.useBigFont)
+          drawCharacter15x15(scrollState.text1Copy[i], loopX, 1, currentFullColourHex);
+        else
+        {
+          if (i < scrollState.text1Len) drawCharacter7x7(scrollState.text1Copy[i], loopX, 0, currentTopColourHex);
+          if (i < scrollState.text2Len) drawCharacter7x7(scrollState.text2Copy[i], loopX, 8, currentBottomColourHex);
+        }
+      }
+
+      // Spacing logic
+      currentX += charWidth;
+      if (scrollState.useBigFont)
+      {
+        if (i + 1 < scrollState.text1Len && needsSpacing(scrollState.text1Copy[i], scrollState.text1Copy[i + 1], true))
+          currentX += 1;
+      }
+      else
+      {
+        bool spaced = false;
+        if (i + 1 < scrollState.text1Len && needsSpacing(scrollState.text1Copy[i], scrollState.text1Copy[i + 1], false))
+          spaced = true;
+        if (i + 1 < scrollState.text2Len && needsSpacing(scrollState.text2Copy[i], scrollState.text2Copy[i + 1], false))
+          spaced = true;
+        if (spaced)
+          currentX += 1;
       }
     }
-    delay(1);
-  }
 
-  // Stack allocated arrays - no cleanup needed
+    updateLEDs();
+    scrollState.shift++;
+  }
+}
+
+// Stop scroll animation and clean up
+void Display::stopScrollAnimation()
+{
+  if (scrollState.isActive)
+  {
+    scrollState.isActive = false;
+    clearBuffer(scrollState.useBigFont);
+    updateLEDs();
+  }
+  scrollInterrupt = false;
 }
 
 // Breathing implementation
