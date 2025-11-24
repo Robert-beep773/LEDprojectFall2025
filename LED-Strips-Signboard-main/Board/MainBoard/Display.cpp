@@ -340,6 +340,122 @@ void Display::scrollTextContinuous(const char* text1, const char* text2, int tot
   int longerTextLen = (text1Len > text2Len) ? text1Len : text2Len;
   int shift = 0;
 
+<<<<<<< Updated upstream
+=======
+  // Stop any existing scroll
+  stopScrollAnimation();
+  
+  // Initialize scroll state
+  scrollState.isActive = true;
+  scrollState.useBigFont = useBigFont;
+  scrollState.previousMillis = millis();
+  scrollState.shift = 0;
+  scrollState.scrollSpeed = 100;
+  scrollState.totalWidth = totalWidth;
+  scrollState.text1Len = text1Len;
+  scrollState.text2Len = text2Len;
+  scrollState.longerTextLen = (text1Len > text2Len) ? text1Len : text2Len;
+  
+  // Copy text strings
+  strncpy(scrollState.text1Copy, text1, 120);
+  strncpy(scrollState.text2Copy, text2, 120);
+  scrollState.text1Copy[120] = '\0';
+  scrollState.text2Copy[120] = '\0';
+  
+  // Draw first frame immediately
+  updateScrollAnimation();
+}
+
+// Non-blocking scroll animation update - call from main loop
+void Display::updateScrollAnimation()
+{
+  if (!scrollState.isActive) return;
+  
+  // Check for Serial interrupt first (listening device requirement)
+  // Just stop animation - don't clear buffer, let main loop handle the command
+  if (Serial.available() > 0)
+  {
+    stopScrollAnimation();
+    return;
+  }
+  
+  unsigned long currentMillis = millis();
+  
+  // Check if it's time to update the frame
+  if (currentMillis - scrollState.previousMillis >= scrollState.scrollSpeed)
+  {
+    scrollState.previousMillis = currentMillis;
+    clearBuffer(scrollState.useBigFont);
+    
+    // Use modulo to prevent overflow and create seamless loop
+    unsigned long effectiveShift = scrollState.shift % (scrollState.totalWidth + NUMPIXELS);
+    int currentX = NUMPIXELS - (int)effectiveShift;
+
+    for (int i = 0; i < scrollState.longerTextLen; i++)
+    {
+      int charWidth = scrollState.useBigFont ? 
+        getCharacterWidth15x15(scrollState.text1Copy[i]) :
+        getCharacterWidth7x7((scrollState.text1Len > scrollState.text2Len) ? 
+          scrollState.text1Copy[i] : scrollState.text2Copy[i]);
+
+      if (currentX >= -charWidth && currentX < NUMPIXELS)
+      {
+        if (scrollState.useBigFont)
+          drawCharacter15x15(scrollState.text1Copy[i], currentX, 1, currentFullColourHex);
+        else
+        {
+          if (i < scrollState.text1Len) drawCharacter7x7(scrollState.text1Copy[i], currentX, 0, currentTopColourHex);
+          if (i < scrollState.text2Len) drawCharacter7x7(scrollState.text2Copy[i], currentX, 8, currentBottomColourHex);
+        }
+      }
+
+      // Second draw for seamless loop
+      int loopX = currentX + scrollState.totalWidth + NUMPIXELS;
+      if (loopX >= 0 && loopX < NUMPIXELS * 2)
+      {
+        if (scrollState.useBigFont)
+          drawCharacter15x15(scrollState.text1Copy[i], loopX, 1, currentFullColourHex);
+        else
+        {
+          if (i < scrollState.text1Len) drawCharacter7x7(scrollState.text1Copy[i], loopX, 0, currentTopColourHex);
+          if (i < scrollState.text2Len) drawCharacter7x7(scrollState.text2Copy[i], loopX, 8, currentBottomColourHex);
+        }
+      }
+
+      // Spacing logic
+      currentX += charWidth;
+      if (scrollState.useBigFont)
+      {
+        if (i + 1 < scrollState.text1Len && needsSpacing(scrollState.text1Copy[i], scrollState.text1Copy[i + 1], true))
+          currentX += 1;
+      }
+      else
+      {
+        bool spaced = false;
+        if (i + 1 < scrollState.text1Len && needsSpacing(scrollState.text1Copy[i], scrollState.text1Copy[i + 1], false))
+          spaced = true;
+        if (i + 1 < scrollState.text2Len && needsSpacing(scrollState.text2Copy[i], scrollState.text2Copy[i + 1], false))
+          spaced = true;
+        if (spaced)
+          currentX += 1;
+      }
+    }
+
+    updateLEDs();
+    scrollState.shift++;
+  }
+}
+
+// Stop scroll animation and clean up
+void Display::stopScrollAnimation()
+{
+  if (scrollState.isActive)
+  {
+    scrollState.isActive = false;
+    clearBuffer(scrollState.useBigFont);
+    updateLEDs();
+  }
+>>>>>>> Stashed changes
   scrollInterrupt = false;
 
   char* text1Copy = new char[text1Len + 1];

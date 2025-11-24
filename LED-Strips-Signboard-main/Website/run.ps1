@@ -87,6 +87,92 @@ function Add-CorsHeaders($response)
     $response.AppendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     $response.AppendHeader("Access-Control-Allow-Headers", "Content-Type")
 
+<<<<<<< Updated upstream
+=======
+# Function to convert JSON data to ASCII protocol format
+function ConvertTo-AsciiProtocol($jsonData)
+{
+    $startChar = [char]12  # ASCII 12
+    $endChar = [char]15    # ASCII 15
+    
+    switch ($jsonData.command)
+    {
+        "static" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1002" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1001" + $jsonData.data + "$endChar"
+            }
+        }
+        "scrolC" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1004" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1003" + $jsonData.data + "$endChar"
+            }
+        }
+        "scrolS" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1006" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1005" + $jsonData.data + "$endChar"
+            }
+        }
+        "fadeIn" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1008" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1007" + $jsonData.data + "$endChar"
+            }
+        }
+        "breath" {
+            if ($jsonData.isBig -eq "yes") {
+                return "$startChar" + "1010" + $jsonData.data + "$endChar"
+            } else {
+                return "$startChar" + "1009" + $jsonData.data + "$endChar"
+            }
+        }
+        "sTimer" {
+            return "$startChar" + "2001" + $jsonData.data + "$endChar"
+        }
+        "pTimer" {
+            return "$startChar" + "2002" + "$endChar"
+        }
+        "rTimer" {
+            return "$startChar" + "2004" + "$endChar"
+        }
+        "resume" {
+            return "$startChar" + "2003" + "$endChar"
+        }
+        "tod" {
+            return "$startChar" + "2006" + "$endChar"
+        }
+        "settns" {
+            # Handle null or empty values - convert to strings to avoid type errors
+            $brightness = if ([string]::IsNullOrEmpty($jsonData.brightness)) { "" } else { [string]$jsonData.brightness }
+            $tcolor = if ([string]::IsNullOrEmpty($jsonData.tcolor)) { "" } else { [string]$jsonData.tcolor }
+            $bcolor = if ([string]::IsNullOrEmpty($jsonData.bcolor)) { "" } else { [string]$jsonData.bcolor }
+            $fcolor = if ([string]::IsNullOrEmpty($jsonData.fcolor)) { "" } else { [string]$jsonData.fcolor }
+            $settings = $brightness + "," + $tcolor + "," + $bcolor + "," + $fcolor
+            return "$startChar" + "3005" + $settings + "$endChar"
+        }
+        "custom" {
+            if ($jsonData.param -eq "start") {
+                return "$startChar" + "4002" + "$endChar"  # Clear all pixels first
+            }
+            if ($jsonData.param -eq "row") {
+                # Row-based format: row,col1,color1,col2,color2,...
+                return "$startChar" + "4004" + $jsonData.data + "$endChar"
+            }
+            # Legacy single pixel format (for backwards compatibility)
+            $pixelData = $jsonData.data -replace '[()]', '' -replace '#', ''
+            return "$startChar" + "4001" + $pixelData + "$endChar"
+        }
+        default {
+            return "$startChar" + "5001" + "$endChar"  # System status request
+        }
+    }
+>>>>>>> Stashed changes
 }
 
 # Main loop

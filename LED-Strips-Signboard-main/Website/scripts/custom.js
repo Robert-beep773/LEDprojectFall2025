@@ -190,6 +190,7 @@ document.addEventListener('DOMContentLoaded', function()
         e.preventDefault();
         sendBtn.disabled = true;
         sendBtn.style.cursor = "not-allowed";
+<<<<<<< Updated upstream
         setTimeout(() => {
             sendBtn.disabled = false;           
             sendBtn.style.cursor = "pointer";
@@ -199,10 +200,63 @@ document.addEventListener('DOMContentLoaded', function()
             for (let i = 0; i < f_list.length; i += 15) {
                 let chunk = f_list.slice(i, i + 15).join(',');
                 await fetch(`${API_URL}/dashboard/post`, {
+=======
+        sendBtn.textContent = "Sending...";
+        
+        try {
+            // First, clear all pixels using ASCII protocol
+            await fetch(`${API_URL}/dashboard/post`, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    "command": "custom",
+                    "param": "start",
+                    "data": ""
+                })
+            });
+            
+            // Organize pixels by row for efficient sending
+            // Store as: row -> [ {col, color}, ... ]
+            let pixelsByRow = {};
+            
+            // Parse all drawn pixels and organize by row
+            for (let pixelStr of drawnPixels) {
+                // Parse: (row,col,color) -> row, col, color
+                let clean = pixelStr.replace(/[()]/g, '');
+                let parts = clean.split(',');
+                if (parts.length === 3) {
+                    let row = parseInt(parts[0]);
+                    let col = parseInt(parts[1]);
+                    let color = parts[2].replace('#', ''); // Remove # if present
+                    
+                    if (!pixelsByRow[row]) {
+                        pixelsByRow[row] = [];
+                    }
+                    pixelsByRow[row].push({ col: col, color: color });
+                }
+            }
+            
+            // Send each row as a batch
+            // Format: row,col1,color1,col2,color2,col3,color3,...
+            for (let row = 0; row < 15; row++) {
+                if (pixelsByRow[row] && pixelsByRow[row].length > 0) {
+                    // Sort by column for consistent ordering
+                    pixelsByRow[row].sort((a, b) => a.col - b.col);
+                    
+                    // Build row data: row,col1,color1,col2,color2,...
+                    let rowData = row.toString();
+                    for (let pixel of pixelsByRow[row]) {
+                        rowData += ',' + pixel.col + ',' + pixel.color;
+                    }
+                    
+                    // Send row data
+                    await fetch(`${API_URL}/dashboard/post`, {
+>>>>>>> Stashed changes
                         method: 'POST',
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             "command": "custom",
+<<<<<<< Updated upstream
                             "param": i === 0 ? "start" : "no",
                             "data": chunk
                         })
@@ -224,6 +278,28 @@ document.addEventListener('DOMContentLoaded', function()
                 })
             });
             await new Promise(resolve => setTimeout(resolve, 2000));
+=======
+                            "param": "row",
+                            "data": rowData
+                        })
+                    });
+                    
+                    // Small delay between rows for stability
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+            }
+            
+            console.log("Custom pixels sent by row using ASCII protocol");
+            sendBtn.textContent = "Send to Display";
+        } catch (error) {
+            console.error("Error sending pixels:", error);
+            alert("Failed to send pixels. Please try again.");
+        } finally {
+            setTimeout(() => {
+                sendBtn.disabled = false;
+                sendBtn.style.cursor = "pointer";
+            }, 1000);
+>>>>>>> Stashed changes
         }
     });
     
