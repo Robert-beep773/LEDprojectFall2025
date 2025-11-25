@@ -235,28 +235,21 @@ all_preset_btns.forEach(btn =>
 	});
 });
 
-async function send_settings()
+async function send_brightness()
 {
-	let set_btn = document.querySelector('.save-button');
+	let brightness_btn = document.getElementById('saveBrightness');
 	const brightness_value = document.getElementById('brightnessSlider').value;
-	const top_color = document.getElementById('topTextcolour').value;
-	const bottom_color = document.getElementById('bottomTextcolour').value;
-    const full_text_color = document.getElementById('fullScreenTextcolour').value;
-    set_btn.disabled = true;
-	set_btn.style.cursor = "not-allowed";
+	
+	brightness_btn.disabled = true;
+	brightness_btn.style.cursor = "not-allowed";
 
-	var actual_brightness_value = (brightness_value / 100) * 255; // Getting the percentage of 255. Because it is 0 - 255 on the arduino
+	var actual_brightness_value = Math.round((brightness_value / 100) * 255); // Getting the percentage of 255. Because it is 0 - 255 on the arduino
 
 	setTimeout(function()
 	{
-		set_btn.disabled = false;
-		set_btn.style.cursor = "pointer";
+		brightness_btn.disabled = false;
+		brightness_btn.style.cursor = "pointer";
 	}, 3000);
-	
-	// Convert hex colors to RRGGBB format (remove #)
-	const topColorHex = top_color.replace('#', '');
-	const bottomColorHex = bottom_color.replace('#', '');
-	const fullColorHex = full_text_color.replace('#', '');
 	
 	const response = await fetch(`${API_URL}/dashboard/post`,
 	{
@@ -266,6 +259,52 @@ async function send_settings()
 		{
 			"command": "settns",
 			"brightness": actual_brightness_value,
+			"tcolor": "",
+			"bcolor": "",
+			"fcolor": "",
+		})
+	});
+
+	if (response.status != 200)
+	{
+		alert('Failed to send brightness settings');
+	}
+	else
+	{
+		console.log("Brightness settings sent using ASCII protocol");
+	}
+}
+
+async function send_colors()
+{
+	let colors_btn = document.getElementById('saveColors');
+	const top_color = document.getElementById('topTextcolour').value;
+	const bottom_color = document.getElementById('bottomTextcolour').value;
+    const full_text_color = document.getElementById('fullScreenTextcolour').value;
+
+	colors_btn.disabled = true;
+	colors_btn.style.cursor = "not-allowed";
+
+	setTimeout(function()
+	{
+		colors_btn.disabled = false;
+		colors_btn.style.cursor = "pointer";
+	}, 3000);
+	
+	// Convert hex colors to RRGGBB format (remove #)
+	// Only send colors if they are valid (not empty)
+	const topColorHex = top_color && top_color.length > 0 ? top_color.replace('#', '') : '';
+	const bottomColorHex = bottom_color && bottom_color.length > 0 ? bottom_color.replace('#', '') : '';
+	const fullColorHex = full_text_color && full_text_color.length > 0 ? full_text_color.replace('#', '') : '';
+	
+	const response = await fetch(`${API_URL}/dashboard/post`,
+	{
+		method: 'POST',
+		headers: {"Content-Type": "application/json"},
+		body: JSON.stringify(
+		{
+			"command": "settns",
+			"brightness": "",
 			"tcolor": topColorHex,
 			"bcolor": bottomColorHex,
 			"fcolor": fullColorHex,
@@ -274,17 +313,24 @@ async function send_settings()
 
 	if (response.status != 200)
 	{
-		alert('Failed to send settings');
+		alert('Failed to send color settings');
 	}
 	else
 	{
-		console.log("Settings sent using ASCII protocol");
+		console.log("Color settings sent using ASCII protocol");
 	}
 }
 
-function handle_change(val)
+function handle_brightness_change(val)
 {
-	
 	const slider = document.querySelector('.brightness-value');
-	slider.innerHTML = val;
+	slider.innerHTML = val + "%";
+}
+
+function update_color_value(colorId, value)
+{
+	const valueElement = document.getElementById(colorId + 'Value');
+	if (valueElement) {
+		valueElement.textContent = value.toUpperCase();
+	}
 }

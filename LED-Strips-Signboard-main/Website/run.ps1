@@ -137,14 +137,23 @@ function ConvertTo-AsciiProtocol($jsonData)
             return "$startChar" + "2006" + "$endChar"
         }
         "settns" {
-            $settings = $jsonData.brightness + "," + $jsonData.tcolor + "," + $jsonData.bcolor + "," + $jsonData.fcolor
+            # Handle null or empty values - convert to strings to avoid type errors
+            $brightness = if ([string]::IsNullOrEmpty($jsonData.brightness)) { "" } else { [string]$jsonData.brightness }
+            $tcolor = if ([string]::IsNullOrEmpty($jsonData.tcolor)) { "" } else { [string]$jsonData.tcolor }
+            $bcolor = if ([string]::IsNullOrEmpty($jsonData.bcolor)) { "" } else { [string]$jsonData.bcolor }
+            $fcolor = if ([string]::IsNullOrEmpty($jsonData.fcolor)) { "" } else { [string]$jsonData.fcolor }
+            $settings = $brightness + "," + $tcolor + "," + $bcolor + "," + $fcolor
             return "$startChar" + "3005" + $settings + "$endChar"
         }
         "custom" {
             if ($jsonData.param -eq "start") {
                 return "$startChar" + "4002" + "$endChar"  # Clear all pixels first
             }
-            # Parse custom pixel data
+            if ($jsonData.param -eq "row") {
+                # Row-based format: row,col1,color1,col2,color2,...
+                return "$startChar" + "4004" + $jsonData.data + "$endChar"
+            }
+            # Legacy single pixel format (for backwards compatibility)
             $pixelData = $jsonData.data -replace '[()]', '' -replace '#', ''
             return "$startChar" + "4001" + $pixelData + "$endChar"
         }

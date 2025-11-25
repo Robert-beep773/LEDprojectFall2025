@@ -311,23 +311,60 @@ void processCommand(String cmd, String data)
                 
                 if (comma1 != -1 && comma2 != -1 && comma3 != -1)
                 {
-                    int brightness = data.substring(0, comma1).toInt();
+                    String brightnessStr = data.substring(0, comma1);
                     String topColor = data.substring(comma1 + 1, comma2);
                     String bottomColor = data.substring(comma2 + 1, comma3);
                     String fullColor = data.substring(comma3 + 1);
                     
-                    if (brightness >= 0 && brightness <= 255)
+                    // Only set brightness if provided (not empty)
+                    if (brightnessStr.length() > 0)
                     {
-                        display.setBrightness(brightness);
-                        display.setTopColour(parseHexColor(topColor));
-                        display.setBottomColour(parseHexColor(bottomColor));
-                        display.setFullColour(parseHexColor(fullColor));
-                        sendSuccessResponse(cmd);
+                        int brightness = brightnessStr.toInt();
+                        // Check if conversion was successful (toInt returns 0 for invalid, but 0 is valid brightness)
+                        // So we check the string is numeric
+                        bool validBrightness = true;
+                        for (int i = 0; i < brightnessStr.length(); i++) {
+                            if (!isDigit(brightnessStr.charAt(i))) {
+                                validBrightness = false;
+                                break;
+                            }
+                        }
+                        if (validBrightness && brightness >= 0 && brightness <= 255)
+                        {
+                            display.setBrightness(brightness);
+                        }
                     }
-                    else
+                    
+                    // Only set colors if valid (6-character hex strings)
+                    if (topColor.length() == 6)
                     {
-                        sendErrorResponse(9002, "Invalid brightness value");
+                        uint32_t color = parseHexColor(topColor);
+                        if (color != 0xFFFFFFFF)
+                        {
+                            display.setTopColour(color);
+                        }
                     }
+                    
+                    if (bottomColor.length() == 6)
+                    {
+                        uint32_t color = parseHexColor(bottomColor);
+                        if (color != 0xFFFFFFFF)
+                        {
+                            display.setBottomColour(color);
+                        }
+                    }
+                    
+                    if (fullColor.length() == 6)
+                    {
+                        uint32_t color = parseHexColor(fullColor);
+                        if (color != 0xFFFFFFFF)
+                        {
+                            display.setFullColour(color);
+                        }
+                    }
+                    
+                    // Send success response immediately - critical for responsiveness
+                    sendSuccessResponse(cmd);
                 }
                 else
                 {
@@ -352,7 +389,8 @@ void processCommand(String cmd, String data)
                     if (x >= 0 && x < 60 && y >= 0 && y < 15 && color != 0xFFFFFFFF)
                     {
                         display.setPixel(x, y, color);
-                        display.updateLEDs();
+                        // Don't call updateLEDs() here - it blocks the main loop
+                        // The display will update naturally through the main loop
                         sendSuccessResponse(cmd);
                     }
                     else
@@ -384,7 +422,8 @@ void processCommand(String cmd, String data)
                     if (x >= 0 && x < 60 && y >= 0 && y < 15)
                     {
                         display.setPixel(x, y, 0x000000);
-                        display.updateLEDs();
+                        // Don't call updateLEDs() here - it blocks the main loop
+                        // The display will update naturally through the main loop
                         sendSuccessResponse(cmd);
                     }
                     else
@@ -396,6 +435,76 @@ void processCommand(String cmd, String data)
   {
                     sendErrorResponse(9002, "Invalid pixel format. Use X,Y");
                 }
+            }
+            break;
+            
+        case 4004: // Set Custom Pixel Row (Efficient batch mode)
+            {
+                // Format: row,col1,color1,col2,color2,col3,color3,...
+                // Parse row first
+                int firstComma = data.indexOf(',');
+                if (firstComma == -1)
+                {
+                    sendErrorResponse(9002, "Invalid row format");
+                    break;
+                }
+                
+                int y = data.substring(0, firstComma).toInt();
+                if (y < 0 || y >= 15)
+                {
+                    sendErrorResponse(9002, "Invalid row number");
+                    break;
+                }
+                
+                // Parse remaining data: col1,color1,col2,color2,...
+                String remaining = data.substring(firstComma + 1);
+                int pos = 0;
+                int pixelsSet = 0;
+                
+                while (pos < remaining.length())
+                {
+                    // Find next comma (column number)
+                    int colComma = remaining.indexOf(',', pos);
+                    if (colComma == -1) break;
+                    
+                    int x = remaining.substring(pos, colComma).toInt();
+                    if (x < 0 || x >= 60)
+                    {
+                        pos = colComma + 1;
+                        continue; // Skip invalid column
+                    }
+                    
+                    // Find next comma (end of color) or end of string
+                    int nextComma = remaining.indexOf(',', colComma + 1);
+                    String colorStr;
+                    if (nextComma == -1)
+                    {
+                        // Last color in row
+                        colorStr = remaining.substring(colComma + 1);
+                        pos = remaining.length();
+                    }
+                    else
+                    {
+                        colorStr = remaining.substring(colComma + 1, nextComma);
+                        pos = nextComma + 1;
+                    }
+                    
+                    // Parse color (should be 6 hex digits)
+                    if (colorStr.length() == 6)
+                    {
+                        uint32_t color = parseHexColor(colorStr);
+                        if (color != 0xFFFFFFFF)
+                        {
+                            display.setPixel(x, y, color);
+                            pixelsSet++;
+                        }
+                    }
+                }
+                
+                // Don't call updateLEDs() here - it blocks the main loop
+                // The display will be updated periodically through the main loop
+                // This prevents freezing during row-by-row pixel updates
+                sendSuccessResponse(cmd);
             }
             break;
             

@@ -354,6 +354,17 @@ void Display::updateDisplay()
   if (scrollState.isActive) {
     updateScrollAnimation();
   }
+  else {
+    // If no scroll animation is active, update LEDs to show custom pixels
+    // This ensures custom pixels are displayed even when not scrolling
+    static unsigned long lastUpdate = 0;
+    unsigned long currentMillis = millis();
+    // Update LEDs every 50ms when not scrolling (non-blocking)
+    if (currentMillis - lastUpdate >= 50) {
+      updateLEDs();
+      lastUpdate = currentMillis;
+    }
+  }
 }
 
 // Helper function to calculate total text width

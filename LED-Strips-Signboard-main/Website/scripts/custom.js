@@ -190,47 +190,81 @@ document.addEventListener('DOMContentLoaded', function()
         e.preventDefault();
         sendBtn.disabled = true;
         sendBtn.style.cursor = "not-allowed";
-        setTimeout(() => {
-            sendBtn.disabled = false;           
-            sendBtn.style.cursor = "pointer";
-        }, 5000);
+        sendBtn.textContent = "Sending...";
         
-        let f_list = Array.from(drawnPixels);
-        
-        // First, clear all pixels using ASCII protocol
-        await fetch(`${API_URL}/dashboard/post`, {
-            method: 'POST',
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                "command": "custom",
-                "param": "start",
-                "data": ""
-            })
-        });
-        
-        // Then send pixel data in chunks
-        if (f_list.length > 0) {
-            for (let i = 0; i < f_list.length; i += 10) { // Send 10 pixels at a time
-                let chunk = f_list.slice(i, i + 10);
-                for (let pixel of chunk) {
-                    // Parse pixel data: (row,col,color) -> row,col,color
-                    let pixelData = pixel.replace(/[()]/g, '').replace('#', '');
+        try {
+            // First, clear all pixels using ASCII protocol
+            await fetch(`${API_URL}/dashboard/post`, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    "command": "custom",
+                    "param": "start",
+                    "data": ""
+                })
+            });
+            
+            // Organize pixels by row for efficient sending
+            // Store as: row -> [ {col, color}, ... ]
+            let pixelsByRow = {};
+            
+            // Parse all drawn pixels and organize by row
+            for (let pixelStr of drawnPixels) {
+                // Parse: (row,col,color) -> row, col, color
+                let clean = pixelStr.replace(/[()]/g, '');
+                let parts = clean.split(',');
+                if (parts.length === 3) {
+                    let row = parseInt(parts[0]);
+                    let col = parseInt(parts[1]);
+                    let color = parts[2].replace('#', ''); // Remove # if present
+                    
+                    if (!pixelsByRow[row]) {
+                        pixelsByRow[row] = [];
+                    }
+                    pixelsByRow[row].push({ col: col, color: color });
+                }
+            }
+            
+            // Send each row as a batch (line by line)
+            // Format: row,col1,color1,col2,color2,col3,color3,...
+            for (let row = 0; row < 15; row++) {
+                if (pixelsByRow[row] && pixelsByRow[row].length > 0) {
+                    // Sort by column for consistent ordering
+                    pixelsByRow[row].sort((a, b) => a.col - b.col);
+                    
+                    // Build row data: row,col1,color1,col2,color2,...
+                    let rowData = row.toString();
+                    for (let pixel of pixelsByRow[row]) {
+                        rowData += ',' + pixel.col + ',' + pixel.color;
+                    }
+                    
+                    // Send row data
                     await fetch(`${API_URL}/dashboard/post`, {
                         method: 'POST',
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             "command": "custom",
-                            "param": "pixel",
-                            "data": pixelData
+                            "param": "row",
+                            "data": rowData
                         })
                     });
-                    await new Promise(resolve => setTimeout(resolve, 200)); // Longer delay for Arduino stability
+                    
+                    // Small delay between rows for stability
+                    await new Promise(resolve => setTimeout(resolve, 50));
                 }
-                await new Promise(resolve => setTimeout(resolve, 800)); // Longer delay between chunks
             }
+            
+            console.log("Custom pixels sent by row using ASCII protocol");
+            sendBtn.textContent = "Send to Display";
+        } catch (error) {
+            console.error("Error sending pixels:", error);
+            alert("Failed to send pixels. Please try again.");
+        } finally {
+            setTimeout(() => {
+                sendBtn.disabled = false;
+                sendBtn.style.cursor = "pointer";
+            }, 1000);
         }
-        
-        console.log("Custom pixels sent using ASCII protocol");
     });
     
     // Initialize board
