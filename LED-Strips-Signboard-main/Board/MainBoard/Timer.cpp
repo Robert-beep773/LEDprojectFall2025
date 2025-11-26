@@ -114,7 +114,7 @@ void Timer::updateCountdown()
 
     if (remaining.totalseconds() <= 0)
     {
-      Display::getInstance().displayText("0+:00", "", "static", "yes");
+      Display::getInstance().displayText("00:00", "", "static", "yes");
       timerActive = false;
     }
     else
@@ -122,7 +122,8 @@ void Timer::updateCountdown()
       int mins = max(0, remaining.minutes());
       int secs = max(0, remaining.seconds());
       char text[8];
-      sprintf(text, "%d+:%02d", mins, secs);
+      // Format as MM:SS (e.g., "05:30")
+      sprintf(text, "%02d:%02d", mins, secs);
       Display::getInstance().displayText(text, "", "static", "yes");
     }
 }
@@ -130,10 +131,11 @@ void Timer::updateCountdown()
 void Timer::updateTimeOfDay()
 {
     DateTime now = rtc.now();
-    int mins = now.hour();
-    int secs = now.minute();
+    int hours = now.hour();
+    int minutes = now.minute();
     char text[8];
-    sprintf(text, "%d+:%02d", mins, secs);
+    // Format as HH:MM (e.g., "12:34")
+    sprintf(text, "%02d:%02d", hours, minutes);
     Display::getInstance().displayText(text, "", "static", "yes");
 }
 

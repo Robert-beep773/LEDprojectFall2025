@@ -31,6 +31,14 @@ const int MAX_DATA_LENGTH = 150;  // Increased to support long scroll text (120 
 Display& display = Display::getInstance();
 //Display d;
 
+// === Baud‑rate configuration ===
+// Default baud rate as per client requirements
+unsigned long currentBaud = 9600UL;
+// Buffer to accumulate digits typed by the user
+String baudInput = "";
+// Timeout (ms) to wait for user input on boot
+const unsigned long baudTimeout = 15000UL;
+
 // Function declarations
 void parseInput(String input);
 void processCommand(String cmd, String data);
@@ -42,11 +50,11 @@ void sendErrorResponse(int errorCode, String message);
 void setup()
 {
   Serial.begin(9600);  // Fixed baud rate for stability
-  timer.setupRTC();
+  timer.setupRTC();f
   remote.setupRemote();
   display.setup(7);
 
-  display.displayText("LED STRIPS", "SIGNBOARD", "static", "no");
+  display.displayText("LED", "SIGNBOARD", "static", "no");
 }
 
 void loop()
@@ -526,7 +534,7 @@ void processCommand(String cmd, String data)
             break;
             
         case 5004: // Default Message
-            display.displayText("LED STRIPS", "SIGNBOARD", "static", "no");
+            display.displayText("LED", "SIGNBOARD", "static", "no");
             sendSuccessResponse(cmd);
             break;
             

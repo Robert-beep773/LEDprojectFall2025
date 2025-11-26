@@ -72,7 +72,7 @@ void RemoteControl::handleTimerCodes(String remoteCode)
     {
         if (remoteCode == timerCodes[i])
         {
-            sprintf(text, "%d+:%02d", i+1, 0);
+            sprintf(text, "%02d:%02d", i+1, 0);
             Display::getInstance().displayText(text, "", "static", "yes");
             minu = i+1;
             Timer::getInstance().displayTimeOfDay(false);
@@ -243,7 +243,7 @@ void RemoteControl::manualTimerInput()
           {
             Display::getInstance().clearBuffer(true);
             char text[5];
-            sprintf(text, "%s+:00", num);
+            sprintf(text, "%s:00", num);
             Serial.println(num[0]);
             Serial.println(text);
             Display::getInstance().displayText(text, "", "static", "yes");
@@ -256,7 +256,7 @@ void RemoteControl::manualTimerInput()
             char num2[2] = {num[2], '\0'};
             Display::getInstance().clearBuffer(true);
             char text[5];
-            sprintf(text, "%s+:0%s", num1, num2);
+            sprintf(text, "%s:0%s", num1, num2);
             Serial.println(text);
             Display::getInstance().displayText(text, "", "static", "yes");
             inputToSend = "[" + String(text) + "]";
@@ -267,7 +267,7 @@ void RemoteControl::manualTimerInput()
             char num2[3] = {num[2], num[3], '\0'};
             Display::getInstance().clearBuffer(true);
             char text[5];
-            sprintf(text, "%s+:%s", num1, num2);
+            sprintf(text, "%s:%s", num1, num2);
             Serial.println(text);
             Display::getInstance().displayText(text, "", "static", "yes");
             inputToSend = "[" + String(text) + "]";

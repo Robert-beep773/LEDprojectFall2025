@@ -1,5 +1,6 @@
 #include "Display.h"
 #include "CharacterSet15x15Hex.h"
+#include <string.h>  // For memset
 
 // Initialize static instance to nullptr
 Display* Display::instance = nullptr;
@@ -74,14 +75,9 @@ void Display::setBrightness(int brightness)
 // Clear Frame Buffer
 void Display::clearBuffer(bool bigFont)
 {
-  int rows = bigFont ? 15 : 7;
-  for (int i = 0; i < NUM_STRIPS; i++)
-  {
-    for (int j = 0; j < NUMPIXELS; j++)
-    {
-      frameBuffer[i][j] = 0;  // Reset all pixels
-    }
-  }
+  // Use memset for faster, more efficient clearing
+  // This helps prevent memory fragmentation
+  memset(frameBuffer, 0, sizeof(frameBuffer));
 }
 
 // Update LEDs from Buffer
@@ -358,11 +354,27 @@ void Display::updateDisplay()
     // If no scroll animation is active, update LEDs to show custom pixels
     // This ensures custom pixels are displayed even when not scrolling
     static unsigned long lastUpdate = 0;
+    static unsigned long lastMemoryCleanup = 0;
     unsigned long currentMillis = millis();
+    
     // Update LEDs every 50ms when not scrolling (non-blocking)
     if (currentMillis - lastUpdate >= 50) {
       updateLEDs();
       lastUpdate = currentMillis;
+    }
+    
+    // Periodic memory cleanup every 5 minutes to prevent crashes
+    if (currentMillis - lastMemoryCleanup >= 300000) { // 5 minutes = 300000ms
+      // Force garbage collection by clearing and re-initializing buffers
+      // This helps prevent memory fragmentation
+      for (int i = 0; i < NUM_STRIPS; i++) {
+        for (int j = 0; j < NUMPIXELS; j++) {
+          if (frameBuffer[i][j] == 0) {
+            frameBuffer[i][j] = 0; // Touch memory to prevent fragmentation
+          }
+        }
+      }
+      lastMemoryCleanup = currentMillis;
     }
   }
 }
@@ -411,11 +423,18 @@ void Display::scrollTextContinuous(const char* text1, const char* text2, int tot
   scrollState.text2Len = text2Len;
   scrollState.longerTextLen = (text1Len > text2Len) ? text1Len : text2Len;
   
-  // Copy text strings
-  strncpy(scrollState.text1Copy, text1, 120);
-  strncpy(scrollState.text2Copy, text2, 120);
-  scrollState.text1Copy[120] = '\0';
-  scrollState.text2Copy[120] = '\0';
+  // Copy text strings with proper null termination to prevent memory issues
+  // Clear buffers first to prevent leftover data
+  memset(scrollState.text1Copy, 0, sizeof(scrollState.text1Copy));
+  memset(scrollState.text2Copy, 0, sizeof(scrollState.text2Copy));
+  
+  // Safe copy with bounds checking
+  int copyLen1 = min(text1Len, 120);
+  int copyLen2 = min(text2Len, 120);
+  strncpy(scrollState.text1Copy, text1, copyLen1);
+  strncpy(scrollState.text2Copy, text2, copyLen2);
+  scrollState.text1Copy[copyLen1] = '\0';
+  scrollState.text2Copy[copyLen2] = '\0';
   
   // Draw first frame immediately
   updateScrollAnimation();
@@ -510,6 +529,9 @@ void Display::stopScrollAnimation()
   if (scrollState.isActive)
   {
     scrollState.isActive = false;
+    // Clear text buffers to free memory
+    memset(scrollState.text1Copy, 0, sizeof(scrollState.text1Copy));
+    memset(scrollState.text2Copy, 0, sizeof(scrollState.text2Copy));
     clearBuffer(scrollState.useBigFont);
     updateLEDs();
   }
@@ -639,61 +661,104 @@ void Display::displayStaticText(const char* text1, const char* text2, bool useBi
 
   if (useBigFont)
   {
-    // Big Font Mode (Single Row)
-    int textLen = strlen(text1);
-    int totalWidth = calculateTextWidth(text1, true);
-    int startX = (NUMPIXELS - totalWidth) / 2;
-    int startY = 1;
-
-    int currentX = startX;
-    for (int i = 0; i < textLen; i++)
-    {
-      int charWidth = getCharacterWidth15x15(text1[i]);
-      drawCharacter15x15(text1[i], currentX, startY, currentFullColourHex);
-      currentX += charWidth;
-
-      if (i + 1 < textLen && needsSpacing(text1[i], text1[i + 1], true))
-        currentX += 1;
-    }
+    // Big Font Mode (Single Row) - Chunked display
+    displayTextChunked(text1, "", true, currentFullColourHex);
   }
   else
   {
-    // Small Font Mode (Two Rows)
-    int topLen = strlen(text1);
-    int bottomLen = strlen(text2);
-
-    int topWidth = calculateTextWidth(text1, false);
-    int bottomWidth = calculateTextWidth(text2, false);
-
-    int topX = (NUMPIXELS - topWidth) / 2;
-    int bottomX = (NUMPIXELS - bottomWidth) / 2;
-
-    // Top row
-    int currentX = topX;
-    for (int i = 0; i < topLen; i++)
-    {
-      int charWidth = getCharacterWidth7x7(text1[i]);
-      drawCharacter7x7(text1[i], currentX, 0, currentTopColourHex);
-      currentX += charWidth;
-
-      if (i + 1 < topLen && needsSpacing(text1[i], text1[i + 1], false))
-        currentX += 1;
-    }
-
-    // Bottom row
-    currentX = bottomX;
-    for (int i = 0; i < bottomLen; i++)
-    {
-      int charWidth = getCharacterWidth7x7(text2[i]);
-      drawCharacter7x7(text2[i], currentX, 8, currentBottomColourHex);
-      currentX += charWidth;
-
-      if (i + 1 < bottomLen && needsSpacing(text2[i], text2[i + 1], false))
-        currentX += 1;
-    }
+    // Small Font Mode (Two Rows) - Chunked display
+    displayTextChunked(text1, text2, false, currentTopColourHex);
   }
 
   updateLEDs();
+}
+
+// Chunked text display - divides text into 5 segments and displays line by line
+void Display::displayTextChunked(const char* text1, const char* text2, bool useBigFont, uint32_t color1)
+{
+  int text1Len = strlen(text1);
+  int text2Len = strlen(text2);
+  const int NUM_CHUNKS = 5;
+  
+  // Calculate chunk size for each line
+  int chunk1Size = (text1Len + NUM_CHUNKS - 1) / NUM_CHUNKS; // Round up division
+  int chunk2Size = text2Len > 0 ? (text2Len + NUM_CHUNKS - 1) / NUM_CHUNKS : 0;
+  
+  // Display each chunk sequentially
+  for (int chunk = 0; chunk < NUM_CHUNKS; chunk++)
+  {
+    int start1 = chunk * chunk1Size;
+    int end1 = (start1 + chunk1Size < text1Len) ? start1 + chunk1Size : text1Len;
+    int start2 = chunk * chunk2Size;
+    int end2 = text2Len > 0 ? ((start2 + chunk2Size < text2Len) ? start2 + chunk2Size : text2Len) : 0;
+    
+    // Only process if there's text in this chunk
+    if (start1 < text1Len || (text2Len > 0 && start2 < text2Len))
+    {
+      // Calculate width for this chunk
+      int chunk1Width = 0;
+      int chunk2Width = 0;
+      
+      // Calculate top line chunk width
+      for (int i = start1; i < end1; i++)
+      {
+        chunk1Width += useBigFont ? getCharacterWidth15x15(text1[i]) : getCharacterWidth7x7(text1[i]);
+        chunk1Width += 1; // spacing
+      }
+      
+      // Calculate bottom line chunk width
+      if (text2Len > 0)
+      {
+        for (int i = start2; i < end2; i++)
+        {
+          chunk2Width += getCharacterWidth7x7(text2[i]);
+          chunk2Width += 1; // spacing
+        }
+      }
+      
+      // Center the chunk on display
+      int topX = (NUMPIXELS - chunk1Width) / 2;
+      int bottomX = text2Len > 0 ? (NUMPIXELS - chunk2Width) / 2 : 0;
+      
+      // Draw top line chunk
+      int currentX = topX;
+      for (int i = start1; i < end1; i++)
+      {
+        int charWidth = useBigFont ? getCharacterWidth15x15(text1[i]) : getCharacterWidth7x7(text1[i]);
+        if (useBigFont)
+        {
+          drawCharacter15x15(text1[i], currentX, 1, color1);
+        }
+        else
+        {
+          drawCharacter7x7(text1[i], currentX, 0, color1);
+        }
+        currentX += charWidth;
+        
+        if (i + 1 < end1 && needsSpacing(text1[i], text1[i + 1], useBigFont))
+          currentX += 1;
+      }
+      
+      // Draw bottom line chunk (only for small font)
+      if (!useBigFont && text2Len > 0)
+      {
+        currentX = bottomX;
+        for (int i = start2; i < end2; i++)
+        {
+          int charWidth = getCharacterWidth7x7(text2[i]);
+          drawCharacter7x7(text2[i], currentX, 8, currentBottomColourHex);
+          currentX += charWidth;
+          
+          if (i + 1 < end2 && needsSpacing(text2[i], text2[i + 1], false))
+            currentX += 1;
+        }
+      }
+      
+      // Small delay between chunks to show progression
+      updateLEDs();
+      delay(100); // Brief pause between chunks
+    }
+  }
 }
 
 

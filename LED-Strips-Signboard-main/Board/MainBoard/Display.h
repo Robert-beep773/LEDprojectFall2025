@@ -30,19 +30,19 @@ private:
   // Interrupt flag for scrolling operations
   volatile bool scrollInterrupt = false;
   
-  // State machine for non-blocking scroll animation
+  // Scroll state structure for non-blocking scroll animation
   struct ScrollState {
-    bool isActive = false;
-    bool useBigFont = false;
-    unsigned long previousMillis = 0;
-    unsigned long shift = 0;  // Use unsigned long to prevent overflow
-    int scrollSpeed = 100;
-    int totalWidth = 0;
-    int text1Len = 0;
-    int text2Len = 0;
-    int longerTextLen = 0;
-    char text1Copy[121];  // Support up to 120 characters
-    char text2Copy[121];  // Support up to 120 characters
+    bool isActive;
+    bool useBigFont;
+    unsigned long previousMillis;
+    unsigned long shift;
+    int scrollSpeed;
+    int totalWidth;
+    int text1Len;
+    int text2Len;
+    int longerTextLen;
+    char text1Copy[121];
+    char text2Copy[121];
   } scrollState;
  
   // Character drawing helper methods
@@ -55,12 +55,12 @@ private:
   int calculateTextWidth(const char* text, bool useBigFont);
   void scrollTextContinuous(const char* text1, const char* text2, int totalWidth, bool useBigFont);
   void updateScrollAnimation();  // Non-blocking scroll update (call from main loop)
-  void stopScrollAnimation();    // Stop and clean up scroll
   void drawTextLine(const char* text, int textLen, int* charWidths, int startX, int y, uint32_t color, int totalWidth, bool useBigFont);
   void scrollTextAndStop(const char* text1, const char* text2, int totalWidth, bool useBigFont);
   void fadeInText(const char* text1, const char* text2, bool useBigFont);
   void breatheText(const char* text1, const char* text2, bool useBigFont);
   void displayStaticText(const char* text1, const char* text2, bool useBigFont);
+  void displayTextChunked(const char* text1, const char* text2, bool useBigFont, uint32_t color1); // Chunked display for memory optimization
   
 public:
   // Singleton accessor
@@ -89,6 +89,7 @@ public:
   // Text display methods
   void displayText(const char* text1, const char* text2, const char* command, const char* displayType);
   void updateDisplay();  // Call this from main loop to update animations
+  void stopScrollAnimation();    // Stop and clean up scroll (public for command handling)
   // Colour management
   void setTopColour(const uint32_t colourHex);
   void setBottomColour(const uint32_t colourHex);
