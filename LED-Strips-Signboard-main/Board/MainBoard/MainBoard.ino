@@ -50,11 +50,11 @@ void sendErrorResponse(int errorCode, String message);
 void setup()
 {
   Serial.begin(9600);  // Fixed baud rate for stability
-  timer.setupRTC();f
+  timer.setupRTC();
   remote.setupRemote();
   display.setup(7);
 
-  display.displayText("LED", "SIGNBOARD", "static", "no");
+  display.displayText("LED STRIPS", "SIGNBOARD", "static", "no");
 }
 
 void loop()

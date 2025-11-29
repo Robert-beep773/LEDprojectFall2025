@@ -680,6 +680,33 @@ void Display::displayTextChunked(const char* text1, const char* text2, bool useB
   int text2Len = strlen(text2);
   const int NUM_CHUNKS = 5;
   
+  // Calculate total width of entire text (not just chunks) for proper centering
+  int totalText1Width = 0;
+  int totalText2Width = 0;
+  
+  // Calculate total width for text1
+  for (int i = 0; i < text1Len; i++)
+  {
+    totalText1Width += useBigFont ? getCharacterWidth15x15(text1[i]) : getCharacterWidth7x7(text1[i]);
+    if (i + 1 < text1Len && needsSpacing(text1[i], text1[i + 1], useBigFont))
+      totalText1Width += 1;
+  }
+  
+  // Calculate total width for text2
+  if (text2Len > 0)
+  {
+    for (int i = 0; i < text2Len; i++)
+    {
+      totalText2Width += getCharacterWidth7x7(text2[i]);
+      if (i + 1 < text2Len && needsSpacing(text2[i], text2[i + 1], false))
+        totalText2Width += 1;
+    }
+  }
+  
+  // Center the entire text once (not each chunk)
+  int topX = (NUMPIXELS - totalText1Width) / 2;
+  int bottomX = text2Len > 0 ? (NUMPIXELS - totalText2Width) / 2 : 0;
+  
   // Calculate chunk size for each line
   int chunk1Size = (text1Len + NUM_CHUNKS - 1) / NUM_CHUNKS; // Round up division
   int chunk2Size = text2Len > 0 ? (text2Len + NUM_CHUNKS - 1) / NUM_CHUNKS : 0;
@@ -695,33 +722,30 @@ void Display::displayTextChunked(const char* text1, const char* text2, bool useB
     // Only process if there's text in this chunk
     if (start1 < text1Len || (text2Len > 0 && start2 < text2Len))
     {
-      // Calculate width for this chunk
-      int chunk1Width = 0;
-      int chunk2Width = 0;
+      // Calculate the X position for this chunk based on the centered start position
+      int chunk1StartX = topX;
+      int chunk2StartX = bottomX;
       
-      // Calculate top line chunk width
-      for (int i = start1; i < end1; i++)
+      // Calculate offset for this chunk (sum of widths of previous chunks)
+      for (int i = 0; i < start1; i++)
       {
-        chunk1Width += useBigFont ? getCharacterWidth15x15(text1[i]) : getCharacterWidth7x7(text1[i]);
-        chunk1Width += 1; // spacing
+        chunk1StartX += useBigFont ? getCharacterWidth15x15(text1[i]) : getCharacterWidth7x7(text1[i]);
+        if (i + 1 < text1Len && needsSpacing(text1[i], text1[i + 1], useBigFont))
+          chunk1StartX += 1;
       }
       
-      // Calculate bottom line chunk width
       if (text2Len > 0)
       {
-        for (int i = start2; i < end2; i++)
+        for (int i = 0; i < start2; i++)
         {
-          chunk2Width += getCharacterWidth7x7(text2[i]);
-          chunk2Width += 1; // spacing
+          chunk2StartX += getCharacterWidth7x7(text2[i]);
+          if (i + 1 < text2Len && needsSpacing(text2[i], text2[i + 1], false))
+            chunk2StartX += 1;
         }
       }
       
-      // Center the chunk on display
-      int topX = (NUMPIXELS - chunk1Width) / 2;
-      int bottomX = text2Len > 0 ? (NUMPIXELS - chunk2Width) / 2 : 0;
-      
       // Draw top line chunk
-      int currentX = topX;
+      int currentX = chunk1StartX;
       for (int i = start1; i < end1; i++)
       {
         int charWidth = useBigFont ? getCharacterWidth15x15(text1[i]) : getCharacterWidth7x7(text1[i]);
@@ -742,7 +766,7 @@ void Display::displayTextChunked(const char* text1, const char* text2, bool useB
       // Draw bottom line chunk (only for small font)
       if (!useBigFont && text2Len > 0)
       {
-        currentX = bottomX;
+        currentX = chunk2StartX;
         for (int i = start2; i < end2; i++)
         {
           int charWidth = getCharacterWidth7x7(text2[i]);
