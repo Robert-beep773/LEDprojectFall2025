@@ -236,18 +236,46 @@ document.addEventListener('DOMContentLoaded', function()
                 }
             }
             
+<<<<<<< Updated upstream
             // Send each row as a batch
             // Format: row,col1,color1,col2,color2,col3,color3,...
+=======
+            // Send each row in chunks of max 5 columns per chunk
+            // Format: row,col1,color1,col2,color2,... (max 5 columns per chunk)
+            const MAX_COLS_PER_CHUNK = 5;
+            
+>>>>>>> Stashed changes
             for (let row = 0; row < 15; row++) {
                 if (pixelsByRow[row] && pixelsByRow[row].length > 0) {
                     // Sort by column for consistent ordering
                     pixelsByRow[row].sort((a, b) => a.col - b.col);
                     
-                    // Build row data: row,col1,color1,col2,color2,...
-                    let rowData = row.toString();
-                    for (let pixel of pixelsByRow[row]) {
-                        rowData += ',' + pixel.col + ',' + pixel.color;
+                    // Split row into chunks of max 5 columns
+                    for (let chunkStart = 0; chunkStart < pixelsByRow[row].length; chunkStart += MAX_COLS_PER_CHUNK) {
+                        let chunkEnd = Math.min(chunkStart + MAX_COLS_PER_CHUNK, pixelsByRow[row].length);
+                        let chunk = pixelsByRow[row].slice(chunkStart, chunkEnd);
+                        
+                        // Build chunk data: row,col1,color1,col2,color2,... (max 5 columns)
+                        let rowData = row.toString();
+                        for (let pixel of chunk) {
+                            rowData += ',' + pixel.col + ',' + pixel.color;
+                        }
+                        
+                        // Send chunk data
+                        await fetch(`${API_URL}/dashboard/post`, {
+                            method: 'POST',
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                "command": "custom",
+                                "param": "row",
+                                "data": rowData
+                            })
+                        });
+                        
+                        // Small delay between chunks for stability
+                        await new Promise(resolve => setTimeout(resolve, 30));
                     }
+<<<<<<< Updated upstream
                     
                     // Send row data
                     await fetch(`${API_URL}/dashboard/post`, {
@@ -286,6 +314,8 @@ document.addEventListener('DOMContentLoaded', function()
                     
                     // Small delay between rows for stability
                     await new Promise(resolve => setTimeout(resolve, 50));
+=======
+>>>>>>> Stashed changes
                 }
             }
             
