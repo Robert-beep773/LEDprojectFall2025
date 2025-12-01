@@ -33,13 +33,13 @@
             <div>
                 <label class="with-top-bottom"><h1>Top:</h1></label>
                 <input type="text" class="message-input" placeholder="Enter the message here" id="message">
-                <p id="char-count">0/5</p>
+                <p id="char-count">0/10</p>
             </div>
 
             <div class="with-top-bottom">
                 <label class="with-top-bottom"><h1>Below:</h1></label>
                 <input type="text" class="message-input" placeholder="Enter the message here" id="message2">
-                <p id="char-count2">0/5</p>
+                <p id="char-count2">0/10</p>
             </div>
 
             <div class="options-panel">
@@ -89,6 +89,20 @@
                         <div class="radio-option">
                             <input type="radio" name="scrollType" value="scrolS" id="scrolS">
                             <label for="scrolS">Scroll then stop</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="option-group with-scroll">
+                    <label>Scroll speed:</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" name="scrollSpeed" value="fast" id="scrollFast" checked>
+                            <label for="scrollFast">Fast</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="scrollSpeed" value="slow" id="scrollSlow">
+                            <label for="scrollSlow">Slow</label>
                         </div>
                     </div>
                 </div>

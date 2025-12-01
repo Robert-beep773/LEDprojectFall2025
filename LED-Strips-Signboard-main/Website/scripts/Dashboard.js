@@ -11,14 +11,44 @@ async function sendMessage()
 	let isBig = document.querySelector('input[name="isBig"]:checked').value;
     let send = document.getElementById("btn_send");
 
-	if (isBig === "no")
-	{
-			message = message + "," + message2;
-	}
-
+	// Get scroll type if animation is scroll
 	if (animation == "scroll")
 	{
 		animation = document.querySelector('input[name="scrollType"]:checked').value;
+	}
+
+	// Validate character limits (only for static and scroll then stop)
+	// Scroll continuous allows up to 120 characters
+	if (animation === "static" || animation === "scrolS") {
+		if (isBig === "yes") {
+			// Full screen: max 4 characters
+			if (message.length > 4) {
+				alert('Full screen text can only fit 4 characters');
+				return;
+			}
+		} else {
+			// Top/Bottom: max 10 characters each
+			if (message.length > 10) {
+				alert('Top text can only fit 10 characters');
+				return;
+			}
+			if (message2.length > 10) {
+				alert('Bottom text can only fit 10 characters');
+				return;
+			}
+		}
+	} else if (animation === "scrolC") {
+		// Scroll continuous: allow up to 120 characters total
+		let totalLength = isBig === "no" ? message.length + message2.length + 1 : message.length; // +1 for comma
+		if (totalLength > 120) {
+			alert('Scroll continuous text can only fit 120 characters total');
+			return;
+		}
+	}
+
+	if (isBig === "no")
+	{
+			message = message + "," + message2;
 	}
 
 	if (!message)
@@ -34,6 +64,12 @@ async function sendMessage()
 			send.style.cursor = "pointer";
 		}, 3000);
 		
+		// Get scroll speed if animation is scroll
+		let scrollSpeed = "fast"; // default
+		if (animation === "scrolC" || animation === "scrolS") {
+			scrollSpeed = document.querySelector('input[name="scrollSpeed"]:checked').value;
+		}
+		
 		// Send using new ASCII protocol format
 		const response = await fetch(`${API_URL}/dashboard/post`,
 		{
@@ -43,7 +79,8 @@ async function sendMessage()
 			{
 				"command": animation,
 				"isBig": isBig,
-				"data": message
+				"data": message,
+				"scrollSpeed": scrollSpeed
 			})
 		});
 	

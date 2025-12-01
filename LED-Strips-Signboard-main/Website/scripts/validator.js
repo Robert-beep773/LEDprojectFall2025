@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () =>
 
     // For top and bottom display
     let topBottomElements = document.querySelectorAll('.with-top-bottom');
-    let scrollElement = document.querySelector('.with-scroll');
+    let scrollElements = document.querySelectorAll('.with-scroll');
 
     // This is for helping users keep the test they typed for maxChars = 20
     let prevText = "";
@@ -53,36 +53,44 @@ document.addEventListener("DOMContentLoaded", () =>
         const isBig = document.querySelector('input[name="isBig"]:checked').value;
         const animation = document.querySelector('input[name="animation"]:checked').value;
 
-        scrollElement.classList.remove('show');
+        // Hide all scroll options
+        scrollElements.forEach(function(element) {
+            element.classList.remove('show');
+        });
 
         if (animation === "static")
         {
             if (isBig === "yes")
-                maxChars = 5;
+                maxChars = 4;  // Full screen: 4 characters max
             else if (isBig === "no")
-                maxChars = 20;
+                maxChars = 10;  // Top/Bottom: 10 characters max
 
             prevText = input.value;
         }
         else if (animation === "scroll")
         {
-            scrollElement.classList.add('show');
+            // Show all scroll options (scroll type and scroll speed)
+            scrollElements.forEach(function(element) {
+                element.classList.add('show');
+            });
             const animationChild = document.querySelector('input[name="scrollType"]:checked').value;
             
             console.log(animationChild);
 
             if (animationChild === "scrolS")
             {
+                // Scroll then stop: same limits as static
                 if (isBig === "yes")
-                    maxChars = 5;
+                    maxChars = 4;  // Full screen: 4 characters max
                 else if (isBig === "no")
-                    maxChars = 20;
+                    maxChars = 10;  // Top/Bottom: 10 characters max
     
                 prevText = input.value;
             }
             else if (animationChild === "scrolC")
             {
-                maxChars = 100;
+                // Continuous scroll: allow up to 120 characters (regardless of full/top-bottom)
+                maxChars = 120;
 
                 if (prevText.startsWith(input.value))
                 {
@@ -108,24 +116,38 @@ document.addEventListener("DOMContentLoaded", () =>
             });
         }
 
-        if (input.value.length > maxChars)
+        // For scroll continuous, don't trim - just show count (validation happens on send)
+        // For other modes, trim excess characters
+        const scrollType = animation === "scroll" ? document.querySelector('input[name="scrollType"]:checked')?.value : null;
+        
+        if (animation === "scroll" && scrollType === "scrolC")
         {
-            input.value = input.value.substring(0, maxChars); // Trims excess characters
-            charCount.style.color = "red";
+            // Scroll continuous: show count but don't trim (validation in Dashboard.js)
+            charCount.style.color = input.value.length > maxChars ? "orange" : "black";
+            charCount2.style.color = input2.value.length > maxChars ? "orange" : "black";
         }
         else
         {
-            charCount.style.color = "black";
-        }
+            // Static and scroll then stop: trim excess characters
+            if (input.value.length > maxChars)
+            {
+                input.value = input.value.substring(0, maxChars); // Trims excess characters
+                charCount.style.color = "red";
+            }
+            else
+            {
+                charCount.style.color = "black";
+            }
 
-        if (input2.value.length > maxChars)
-        {
-            input2.value = input2.value.substring(0, maxChars); // Trims excess characters
-            charCount2.style.color = "red";
-        }
-        else
-        {
-            charCount2.style.color = "black";
+            if (input2.value.length > maxChars)
+            {
+                input2.value = input2.value.substring(0, maxChars); // Trims excess characters
+                charCount2.style.color = "red";
+            }
+            else
+            {
+                charCount2.style.color = "black";
+            }
         }
 
         charCount.textContent = `${input.value.length}/${maxChars}`;

@@ -53,10 +53,10 @@ private:
   
   // Helper methods for displayText function
   int calculateTextWidth(const char* text, bool useBigFont);
-  void scrollTextContinuous(const char* text1, const char* text2, int totalWidth, bool useBigFont);
+  void scrollTextContinuous(const char* text1, const char* text2, int totalWidth, bool useBigFont, int scrollSpeed = 50);
   void updateScrollAnimation();  // Non-blocking scroll update (call from main loop)
   void drawTextLine(const char* text, int textLen, int* charWidths, int startX, int y, uint32_t color, int totalWidth, bool useBigFont);
-  void scrollTextAndStop(const char* text1, const char* text2, int totalWidth, bool useBigFont);
+  void scrollTextAndStop(const char* text1, const char* text2, int totalWidth, bool useBigFont, int scrollSpeed = 50);
   void fadeInText(const char* text1, const char* text2, bool useBigFont);
   void breatheText(const char* text1, const char* text2, bool useBigFont);
   void displayStaticText(const char* text1, const char* text2, bool useBigFont);
@@ -87,7 +87,7 @@ public:
   void setBrightness(int brightness);
  
   // Text display methods
-  void displayText(const char* text1, const char* text2, const char* command, const char* displayType);
+  void displayText(const char* text1, const char* text2, const char* command, const char* displayType, int scrollSpeed = 50);
   void updateDisplay();  // Call this from main loop to update animations
   void stopScrollAnimation();    // Stop and clean up scroll (public for command handling)
   // Colour management

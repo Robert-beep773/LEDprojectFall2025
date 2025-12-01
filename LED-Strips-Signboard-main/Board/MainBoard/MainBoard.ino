@@ -1,121 +1,264 @@
+/**
+ * LED Strips Signboard - Main Board Controller
+ * 
+ * This is the main Arduino sketch for the LED signboard system.
+ * It handles serial communication, command processing, display management,
+ * timer functionality, and remote control integration.
+ * 
+ * Communication Protocol:
+ * - Uses ASCII protocol with start/end markers (0x0C and 0x0F)
+ * - Format: <START><COMMAND><DATA><END>
+ * - Commands are 4-digit numeric codes (1001-5004)
+ * 
+ * @author Original team + Refactored by Robert-beep773
+ * @version 2.0
+ */
+
 #include "Display.h"
 #include "Timer.h"
 #include <Wire.h>
 #include <RTClib.h>
 #include "Remote.h"
 
-RTC_DS3231 rtc;// Global RTC instance
-bool useBigFont = true;  // Toggle between 7x7 and 15x15 font sizes
-Timer timer; 
-RemoteControl remote; // Global remote variable
+// ============================================================================
+// GLOBAL OBJECTS AND INSTANCES
+// ============================================================================
 
-// Variables for parsing the received message
-String command = "";
-String message = "";
-String message2 = "";
-int messageSize = 0;
+RTC_DS3231 rtc;              // Real-Time Clock instance for timekeeping
+bool useBigFont = true;      // Toggle between 7x7 (small) and 15x15 (large) font sizes
+Timer timer;                 // Timer subsystem for countdown and time display
+RemoteControl remote;        // Remote control subsystem for wireless communication
+Display& display = Display::getInstance();  // Display singleton instance
 
-// Variable for receiving input directly
+// ============================================================================
+// SERIAL COMMUNICATION PROTOCOL CONSTANTS
+// ============================================================================
+
+const char PROTOCOL_START = 12;    // 0x0C - Start of message marker
+const char PROTOCOL_END = 15;      // 0x0F - End of message marker
+const int COMMAND_LENGTH = 4;      // Length of command code (e.g., "1001")
+const int MAX_DATA_LENGTH = 150;   // Maximum data length (supports 120 chars + overhead)
+
+// ============================================================================
+// MESSAGE PARSING VARIABLES
+// ============================================================================
+
+String command = "";         // Extracted command code from received message
+String message = "";         // Parsed message text (legacy, may be unused)
+String message2 = "";        // Second line of message (legacy, may be unused)
+int messageSize = 0;         // Size of received message
+
+// Legacy variables for direct input (may be unused in current implementation)
 int intByte;
-const uint8_t numRawChar = 100;  // Reduced buffer size for stability
+const uint8_t numRawChar = 100;  // Buffer size for raw character input
 char msgRaw[numRawChar];
 uint8_t charCount = 0;
 bool dataToSend = false;
 
-// ASCII Protocol Constants
-const char PROTOCOL_START = 12;  // 0x0C
-const char PROTOCOL_END = 15;    // 0x0F
-const int COMMAND_LENGTH = 4;
-const int MAX_DATA_LENGTH = 150;  // Increased to support long scroll text (120 chars + overhead)
+// ============================================================================
+// BAUD RATE CONFIGURATION
+// ============================================================================
 
-Display& display = Display::getInstance();
-//Display d;
+unsigned long currentBaud = 9600UL;  // Current serial baud rate (starts at 9600, waits for input)
+String baudInput = "";                // Buffer for baud rate input
 
-// === Baud‑rate configuration ===
-// Default baud rate as per client requirements
-unsigned long currentBaud = 9600UL;
-// Buffer to accumulate digits typed by the user
-String baudInput = "";
-// Timeout (ms) to wait for user input on boot
-const unsigned long baudTimeout = 15000UL;
+// ============================================================================
+// FUNCTION DECLARATIONS
+// ============================================================================
 
-// Function declarations
 void parseInput(String input);
 void processCommand(String cmd, String data);
-void displayText(String text1, String text2, String command, String displayType);
+void displayText(String text1, String text2, String command, String displayType, int scrollSpeed = 50);
 uint32_t parseHexColor(String colorStr);
 void sendSuccessResponse(String cmd, String message = "OK");
 void sendErrorResponse(int errorCode, String message);
 
+// ============================================================================
+// ARDUINO SETUP FUNCTION
+// ============================================================================
+
+/**
+ * Initialization function called once on Arduino boot.
+ * Waits for baud rate input from serial connection before booting.
+ * Once baud rate is received, switches to that rate and displays it, then continues boot.
+ */
 void setup()
 {
-  Serial.begin(9600);  // Fixed baud rate for stability
-  timer.setupRTC();
-  remote.setupRemote();
+  // Initialize display first (needed to show waiting/baud rate)
   display.setup(7);
+  
+  // Start serial at default rate (9600) to receive baud rate input
+  Serial.begin(9600);
+  delay(200);  // Give serial time to initialize
 
+  // Wait indefinitely for baud rate input
+  // Sign will not boot until it receives a valid baud rate
+  baudInput = "";
+  bool baudReceived = false;
+  
+  while (!baudReceived)
+  {
+    if (Serial.available())
+    {
+      char c = Serial.read();
+      
+      // Enter or newline ends input
+      if (c == '\n' || c == '\r')
+      {
+        if (baudInput.length() > 0)
+        {
+          unsigned long requestedBaud = baudInput.toInt();
+          
+          // Validate range (common Arduino baud rates)
+          if (requestedBaud >= 1200UL && requestedBaud <= 115200UL)
+          {
+            currentBaud = requestedBaud;
+            baudReceived = true;
+          }
+          else
+          {
+            // Invalid baud rate, clear and wait for new input
+            baudInput = "";
+          }
+        }
+      }
+      // Only accept digits
+      else if (c >= '0' && c <= '9')
+      {
+        baudInput += c;
+      }
+    }
+  }
+
+  // Restart serial at the new baud rate
+  Serial.flush();
+  delay(10);
+  Serial.end();
+  delay(10);
+  Serial.begin(currentBaud);
+  delay(50);  // Allow serial to stabilize
+
+  // Initialize other subsystems now that baud rate is set
+  timer.setupRTC();        // Setup Real-Time Clock
+  remote.setupRemote();   // Setup remote control receiver
+
+  // Display the new baud rate on the sign
+  // Top line: "TEST BAUD", Bottom line: actual baud rate number
+  char baudStr[16];
+  sprintf(baudStr, "%lu", currentBaud);
+  display.displayText("TEST BAUD", baudStr, "static", "no");
+  delay(3000);  // Show for 3 seconds
+
+  // Display boot message
   display.displayText("LED STRIPS", "SIGNBOARD", "static", "no");
+  
+  // Confirm baud rate over serial
+  Serial.print(F("Baud rate set to: "));
+  Serial.println(currentBaud);
 }
 
+// ============================================================================
+// ARDUINO MAIN LOOP
+// ============================================================================
+
+/**
+ * Main program loop - runs continuously after setup().
+ * Handles serial communication, display updates, and subsystem maintenance.
+ * All operations are non-blocking to maintain responsiveness.
+ */
 void loop()
 {
-  // Check for Serial commands first (listening device priority)
+  // Priority 1: Check for incoming serial commands
+  // This must be checked first to maintain responsiveness
   if (Serial.available())
   {
-    String input = Serial.readStringUntil('\n');  // Read until newline
+    String input = Serial.readStringUntil('\n');  // Read complete line
     parseInput(input);
   }
 
-  // Update display animations (non-blocking scroll)
+  // Priority 2: Update display animations (non-blocking scroll, etc.)
   display.updateDisplay();
   
-  // Update other subsystems
-  remote.useRemote();
-  timer.updateTimer();
+  // Priority 3: Update other subsystems
+  remote.useRemote();   // Check for remote control input
+  timer.updateTimer();  // Update timer countdown/display
 }
 
+// ============================================================================
+// SERIAL COMMUNICATION PARSING
+// ============================================================================
+
+/**
+ * Parses incoming serial input according to the ASCII protocol.
+ * Protocol format: <START><COMMAND><DATA><END>
+ * 
+ * @param input The raw string received from serial port
+ */
 void parseInput(String input)
 {
     // Minimal logging to save memory
     Serial.println("RX");
     
-    timer.displayTimeOfDay(false); // In case the time of day is being displayed
+    // Stop time display if active (to show new command)
+    timer.displayTimeOfDay(false);
 
-    // Quick validation - check length first to avoid crashes
+    // Validation 1: Check message length to prevent crashes
+    // Minimum: <START><4-char-command><END> = 6 characters
+    // Maximum: <START><4-char-command><150-char-data><END> = 156 characters
     if (input.length() < 6 || input.length() > MAX_DATA_LENGTH + 6)
     {
         sendErrorResponse(9001, "Invalid length");
         return;
     }
 
-    // Check protocol markers
+    // Validation 2: Check protocol start/end markers
     if (input.charAt(0) != PROTOCOL_START || input.charAt(input.length() - 1) != PROTOCOL_END)
     {
         sendErrorResponse(9001, "Invalid format");
         return;
     }
     
-    // Extract command safely
+    // Extract 4-character command code (positions 1-4)
     command = input.substring(1, COMMAND_LENGTH + 1);
     
-    // Extract data safely
+    // Extract data payload (everything between command and end marker)
     String data = "";
     if (input.length() > COMMAND_LENGTH + 2)
     {
         data = input.substring(COMMAND_LENGTH + 1, input.length() - 1);
     }
 
-    // Process command
+    // Process the parsed command
     processCommand(command, data);
 }
 
+// ============================================================================
+// COMMAND PROCESSOR
+// ============================================================================
+
+/**
+ * Processes commands received via serial communication.
+ * 
+ * Command Categories:
+ * - 1001-1010: Text Display Commands (static, scroll, fade, breathe)
+ * - 2001-2006: Timer Commands (start, pause, resume, reset, stop, time display)
+ * - 3001-3005: Settings Commands (brightness, colors, all settings)
+ * - 4001-4004: Custom Pixel Commands (set pixel, clear, custom drawings)
+ * - 5001-5004: System Commands (status, reset, clear, default message)
+ * 
+ * @param cmd 4-character command code (e.g., "1001")
+ * @param data Command data payload (format depends on command)
+ */
 void processCommand(String cmd, String data)
 {
     int cmdCode = cmd.toInt();
     
     switch (cmdCode)
     {
-        // TEXT DISPLAY COMMANDS - Memory optimized
+        // ====================================================================
+        // TEXT DISPLAY COMMANDS (1001-1010)
+        // ====================================================================
+        // Memory optimized - uses chunked display for large text
         case 1001: // Static Text (Small Font) - Split by comma for top/bottom rows
             {
                 int commaIndex = data.indexOf(',');
@@ -134,41 +277,75 @@ void processCommand(String cmd, String data)
             sendSuccessResponse(cmd);
             break;
             
-        case 1003: // Scroll Text Continuous (Small Font) - Split by comma for top/bottom rows
+        case 1003: // Scroll Text Continuous (Small Font) - SLOW
             {
                 int commaIndex = data.indexOf(',');
                 String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
                 String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
                 if (text1.length() > 120) text1 = text1.substring(0, 120);
                 if (text2.length() > 120) text2 = text2.substring(0, 120);
-                displayText(text1, text2, "scrolC", "no");
+                displayText(text1, text2, "scrolC", "no", 150); // Slow = 150ms
                 sendSuccessResponse(cmd);
             }
             break;
             
-        case 1004: // Scroll Text Continuous (Large Font)
-            // Allow longer text for scrolling (120 chars)
+        case 1004: // Scroll Text Continuous (Large Font) - SLOW
             if (data.length() > 120) data = data.substring(0, 120);
-            displayText(data, "", "scrolC", "yes");
+            displayText(data, "", "scrolC", "yes", 150); // Slow = 150ms
             sendSuccessResponse(cmd);
             break;
             
-        case 1005: // Scroll Text and Stop (Small Font) - Split by comma for top/bottom rows
+        case 1005: // Scroll Text and Stop (Small Font) - SLOW
             {
                 int commaIndex = data.indexOf(',');
                 String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
                 String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
                 if (text1.length() > 120) text1 = text1.substring(0, 120);
                 if (text2.length() > 120) text2 = text2.substring(0, 120);
-                displayText(text1, text2, "scrolS", "no");
+                displayText(text1, text2, "scrolS", "no", 150); // Slow = 150ms
                 sendSuccessResponse(cmd);
             }
             break;
             
-        case 1006: // Scroll Text and Stop (Large Font)
-            // Allow longer text for scrolling (120 chars)
+        case 1006: // Scroll Text and Stop (Large Font) - SLOW
             if (data.length() > 120) data = data.substring(0, 120);
-            displayText(data, "", "scrolS", "yes");
+            displayText(data, "", "scrolS", "yes", 150); // Slow = 150ms
+            sendSuccessResponse(cmd);
+            break;
+            
+        case 1013: // Scroll Text Continuous (Small Font) - FAST
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 120) text1 = text1.substring(0, 120);
+                if (text2.length() > 120) text2 = text2.substring(0, 120);
+                displayText(text1, text2, "scrolC", "no", 50); // Fast = 50ms
+                sendSuccessResponse(cmd);
+            }
+            break;
+            
+        case 1014: // Scroll Text Continuous (Large Font) - FAST
+            if (data.length() > 120) data = data.substring(0, 120);
+            displayText(data, "", "scrolC", "yes", 50); // Fast = 50ms
+            sendSuccessResponse(cmd);
+            break;
+            
+        case 1015: // Scroll Text and Stop (Small Font) - FAST
+            {
+                int commaIndex = data.indexOf(',');
+                String text1 = (commaIndex > 0) ? data.substring(0, commaIndex) : data;
+                String text2 = (commaIndex > 0 && commaIndex < data.length() - 1) ? data.substring(commaIndex + 1) : "";
+                if (text1.length() > 120) text1 = text1.substring(0, 120);
+                if (text2.length() > 120) text2 = text2.substring(0, 120);
+                displayText(text1, text2, "scrolS", "no", 50); // Fast = 50ms
+                sendSuccessResponse(cmd);
+            }
+            break;
+            
+        case 1016: // Scroll Text and Stop (Large Font) - FAST
+            if (data.length() > 120) data = data.substring(0, 120);
+            displayText(data, "", "scrolS", "yes", 50); // Fast = 50ms
             sendSuccessResponse(cmd);
             break;
             
@@ -384,6 +561,9 @@ void processCommand(String cmd, String data)
         // CUSTOM PIXEL COMMANDS
         case 4001: // Set Custom Pixel
             {
+                // Stop any active scroll animation first
+                display.stopScrollAnimation();
+                
                 int comma1 = data.indexOf(',');
                 int comma2 = data.indexOf(',', comma1 + 1);
                 
@@ -414,6 +594,9 @@ void processCommand(String cmd, String data)
             break;
             
         case 4002: // Clear All Pixels
+            // Stop any active scroll animation first
+            display.stopScrollAnimation();
+            delay(10);  // Small delay to ensure cleanup
             display.clearBuffer(true);
             display.updateLEDs();
             sendSuccessResponse(cmd);
@@ -421,6 +604,9 @@ void processCommand(String cmd, String data)
             
         case 4003: // Clear Custom Pixel
             {
+                // Stop any active scroll animation first
+                display.stopScrollAnimation();
+                
                 int comma = data.indexOf(',');
                 if (comma != -1)
                 {
@@ -438,80 +624,92 @@ void processCommand(String cmd, String data)
                     {
                         sendErrorResponse(9002, "Invalid pixel coordinates");
                     }
-  }
-  else
-  {
+                }
+                else
+                {
                     sendErrorResponse(9002, "Invalid pixel format. Use X,Y");
                 }
             }
             break;
             
-        case 4004: // Set Custom Pixel Row (Efficient batch mode)
+        case 4004: // Set Custom Pixel Row (HEAVILY OPTIMIZED - zero String operations)
             {
-                // Format: row,col1,color1,col2,color2,col3,color3,...
-                // Parse row first
-                int firstComma = data.indexOf(',');
-                if (firstComma == -1)
-                {
-                    sendErrorResponse(9002, "Invalid row format");
+                // Stop any active scroll animation first
+                display.stopScrollAnimation();
+                
+                // Get pointer to data buffer for direct parsing
+                const char* ptr = data.c_str();
+                if (!ptr || *ptr == '\0') {
+                    sendErrorResponse(9002, "Empty data");
                     break;
                 }
                 
-                int y = data.substring(0, firstComma).toInt();
-                if (y < 0 || y >= 15)
-                {
-                    sendErrorResponse(9002, "Invalid row number");
-                    break;
+                // Parse row number (fast integer parsing - no String operations)
+                int y = 0;
+                while (*ptr >= '0' && *ptr <= '9') {
+                    y = y * 10 + (*ptr - '0');
+                    ptr++;
                 }
                 
-                // Parse remaining data: col1,color1,col2,color2,...
-                String remaining = data.substring(firstComma + 1);
-                int pos = 0;
+                if (*ptr != ',' || y < 0 || y >= 15) {
+                    sendErrorResponse(9002, "Invalid row");
+                    break;
+                }
+                ptr++; // Skip comma
+                
+                // Parse pixel pairs: col,color,col,color,...
+                // Process up to 30 pixels per chunk (safety limit)
                 int pixelsSet = 0;
+                const int MAX_PIXELS = 30;
                 
-                while (pos < remaining.length())
+                while (*ptr != '\0' && pixelsSet < MAX_PIXELS)
                 {
-                    // Find next comma (column number)
-                    int colComma = remaining.indexOf(',', pos);
-                    if (colComma == -1) break;
-                    
-                    int x = remaining.substring(pos, colComma).toInt();
-                    if (x < 0 || x >= 60)
-                    {
-                        pos = colComma + 1;
-                        continue; // Skip invalid column
+                    // Fast parse column number
+                    int x = 0;
+                    const char* xStart = ptr;
+                    while (*ptr >= '0' && *ptr <= '9') {
+                        x = x * 10 + (*ptr - '0');
+                        ptr++;
                     }
                     
-                    // Find next comma (end of color) or end of string
-                    int nextComma = remaining.indexOf(',', colComma + 1);
-                    String colorStr;
-                    if (nextComma == -1)
-                    {
-                        // Last color in row
-                        colorStr = remaining.substring(colComma + 1);
-                        pos = remaining.length();
+                    // Validate column and check for comma
+                    if (*ptr != ',' || x < 0 || x >= 60) {
+                        // Invalid column - skip to next pair
+                        while (*ptr != '\0' && *ptr != ',') ptr++;
+                        if (*ptr == ',') ptr++;
+                        continue;
                     }
-                    else
-                    {
-                        colorStr = remaining.substring(colComma + 1, nextComma);
-                        pos = nextComma + 1;
+                    ptr++; // Skip comma
+                    
+                    // Fast hex color parsing (6 digits) - no strlen, direct check
+                    if (ptr[0] == '\0' || ptr[1] == '\0' || ptr[2] == '\0' || 
+                        ptr[3] == '\0' || ptr[4] == '\0' || ptr[5] == '\0') {
+                        break; // Not enough characters for color
                     }
                     
-                    // Parse color (should be 6 hex digits)
-                    if (colorStr.length() == 6)
-                    {
-                        uint32_t color = parseHexColor(colorStr);
-                        if (color != 0xFFFFFFFF)
-                        {
-                            display.setPixel(x, y, color);
-                            pixelsSet++;
-                        }
+                    // Parse 6 hex digits directly
+                    uint32_t color = 0;
+                    bool valid = true;
+                    for (int i = 0; i < 6; i++) {
+                        char c = ptr[i];
+                        uint8_t val;
+                        if (c >= '0' && c <= '9') val = c - '0';
+                        else if (c >= 'A' && c <= 'F') val = c - 'A' + 10;
+                        else if (c >= 'a' && c <= 'f') val = c - 'a' + 10;
+                        else { valid = false; break; }
+                        color = (color << 4) | val;
                     }
+                    
+                    if (valid) {
+                        display.setPixel(x, y, color);
+                        pixelsSet++;
+                    }
+                    
+                    // Move to next pair (skip 6 hex digits + optional comma)
+                    ptr += 6;
+                    if (*ptr == ',') ptr++;
                 }
                 
-                // Don't call updateLEDs() here - it blocks the main loop
-                // The display will be updated periodically through the main loop
-                // This prevents freezing during row-by-row pixel updates
                 sendSuccessResponse(cmd);
             }
             break;
@@ -534,7 +732,7 @@ void processCommand(String cmd, String data)
             break;
             
         case 5004: // Default Message
-            display.displayText("LED", "SIGNBOARD", "static", "no");
+            display.displayText("LED STRIPS", "SIGNBOARD", "static", "no");
             sendSuccessResponse(cmd);
             break;
             
@@ -544,7 +742,22 @@ void processCommand(String cmd, String data)
     }
 }
 
-void displayText(String text1, String text2, String command, String displayType)
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Converts String parameters to C-style char arrays and calls display function.
+ * This wrapper is necessary because the Display class uses char* instead of String
+ * to save memory on Arduino.
+ * 
+ * @param text1 First line of text (top row for small font, or full text for large font)
+ * @param text2 Second line of text (bottom row for small font, empty for large font)
+ * @param command Display command: "static", "scrolC", "scrolS", "fadeIn", "breath"
+ * @param displayType "yes" for large font (15x15), "no" for small font (7x7)
+ */
+
+void displayText(String text1, String text2, String command, String displayType, int scrollSpeed)
 {
     char currentCommand[command.length() + 1];
     command.toCharArray(currentCommand, command.length() + 1);
@@ -558,24 +771,44 @@ void displayText(String text1, String text2, String command, String displayType)
     char currentMessage2[text2.length() + 1];
     text2.toCharArray(currentMessage2, text2.length() + 1);
     
-    display.displayText(currentMessage, currentMessage2, currentCommand, currentDisplayType);
+    display.displayText(currentMessage, currentMessage2, currentCommand, currentDisplayType, scrollSpeed);
 }
 
+/**
+ * Parses a hexadecimal color string to a 32-bit color value.
+ * 
+ * @param colorStr 6-character hex string (e.g., "FF0000" for red)
+ * @return 32-bit color value, or 0xFFFFFFFF if invalid
+ */
 uint32_t parseHexColor(String colorStr)
 {
     if (colorStr.length() == 6)
     {
         return (uint32_t)strtoul(colorStr.c_str(), NULL, 16);
     }
-    return 0xFFFFFFFF; // Invalid color
+    return 0xFFFFFFFF; // Invalid color indicator
 }
 
+/**
+ * Sends a success response back to the client.
+ * Format: <START><COMMAND><MESSAGE><END>
+ * 
+ * @param cmd The original command code
+ * @param message Optional success message (defaults to "OK")
+ */
 void sendSuccessResponse(String cmd, String message = "OK")
 {
     String response = String(PROTOCOL_START) + cmd + message + String(PROTOCOL_END);
     Serial.println(response);
 }
 
+/**
+ * Sends an error response back to the client.
+ * Format: <START><ERROR_CODE><MESSAGE><END>
+ * 
+ * @param errorCode Numeric error code (e.g., 9001, 9002)
+ * @param message Error description message
+ */
 void sendErrorResponse(int errorCode, String message)
 {
     String response = String(PROTOCOL_START) + String(errorCode) + message + String(PROTOCOL_END);

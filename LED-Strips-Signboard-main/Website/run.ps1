@@ -47,21 +47,55 @@ else
 }
 }while($true)
 
-# Fixed baud rate for stability
-$baudRate = 9600
-Write-Host "Using fixed baud rate: $baudRate"
+# Ask for baud rate with validation
+do
+{
+$baudInput = Read-Host "Enter Baud Rate"
+if ([string]::IsNullOrWhiteSpace($baudInput) -or $baudInput -match '\D')
+{
+    Write-Host "Invalid input. Enter numbers only."
+}
+else
+{
+    $parsedBaud = [int]::Parse($baudInput)
+    if ($parsedBaud -ge 1200 -and $parsedBaud -le 115200)
+    {
+        $baudRate = $parsedBaud
+        Write-Host "Using baud rate: $baudRate"
+        break
+    }
+    else
+    {
+        Write-Host "Baud rate must be between 1200 and 115200"
+    }
+}
+}while($true)
 
 $url = "http://127.0.0.1:$server_port/";
 $http.Prefixes.Add($url);
 $http.Start();
 $f_port = "COM$signPort" # add the COM to initialize the entered port as serial com
 
-
-$out_port_a = new-Object System.IO.Ports.SerialPort $f_port,$baudRate,None,8,one
-
-$out_port_a.WriteBufferSize = 65536   # Set the buffer size to high value that is 4096 bytes
-$out_port_a.WriteTimeout = 1200 # set max timeout of the serial write operation in order to prevent stalling of main script
+# Connect at 9600 first to send baud rate to Arduino
+$initialBaud = 9600
+$out_port_a = new-Object System.IO.Ports.SerialPort $f_port,$initialBaud,None,8,one
+$out_port_a.WriteBufferSize = 65536
+$out_port_a.WriteTimeout = 1200
 $out_port_a.open()
+
+# Send baud rate to Arduino (just the number, Arduino will read it)
+Write-Host "Sending baud rate $baudRate to Arduino..."
+$out_port_a.WriteLine($baudRate)
+Start-Sleep -Milliseconds 500  # Give Arduino time to process and switch
+
+# Close and reopen at the new baud rate
+$out_port_a.Close()
+Start-Sleep -Milliseconds 200
+$out_port_a = new-Object System.IO.Ports.SerialPort $f_port,$baudRate,None,8,one
+$out_port_a.WriteBufferSize = 65536
+$out_port_a.WriteTimeout = 1200
+$out_port_a.open()
+Write-Host "Reconnected at baud rate: $baudRate"
 
 # Log ready message to terminal
 if ($http.IsListening) 
@@ -94,17 +128,27 @@ function ConvertTo-AsciiProtocol($jsonData)
             }
         }
         "scrolC" {
+            # Use different command codes for fast/slow scroll
+            # Fast: 1013/1014, Slow: 1003/1004
+            $isFast = $jsonData.scrollSpeed -ne "slow"
             if ($jsonData.isBig -eq "yes") {
-                return "$startChar" + "1004" + $jsonData.data + "$endChar"
+                $cmdCode = if ($isFast) { "1014" } else { "1004" }
+                return "$startChar" + $cmdCode + $jsonData.data + "$endChar"
             } else {
-                return "$startChar" + "1003" + $jsonData.data + "$endChar"
+                $cmdCode = if ($isFast) { "1013" } else { "1003" }
+                return "$startChar" + $cmdCode + $jsonData.data + "$endChar"
             }
         }
         "scrolS" {
+            # Use different command codes for fast/slow scroll
+            # Fast: 1015/1016, Slow: 1005/1006
+            $isFast = $jsonData.scrollSpeed -ne "slow"
             if ($jsonData.isBig -eq "yes") {
-                return "$startChar" + "1006" + $jsonData.data + "$endChar"
+                $cmdCode = if ($isFast) { "1016" } else { "1006" }
+                return "$startChar" + $cmdCode + $jsonData.data + "$endChar"
             } else {
-                return "$startChar" + "1005" + $jsonData.data + "$endChar"
+                $cmdCode = if ($isFast) { "1015" } else { "1005" }
+                return "$startChar" + $cmdCode + $jsonData.data + "$endChar"
             }
         }
         "fadeIn" {
