@@ -38,64 +38,18 @@ async function sendMessage()
 	let isBig = document.querySelector('input[name="isBig"]:checked').value;
     let send = document.getElementById("btn_send");
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-
-=======
-	// For two-row display (small font), combine messages with comma separator
->>>>>>> Stashed changes
 	if (isBig === "no")
 	{
 			message = message + "," + message2;
 	}
 
 	// If scroll animation selected, get the specific scroll type
-=======
-	// Get scroll type if animation is scroll
->>>>>>> Stashed changes
 	if (animation == "scroll")
 	{
 		animation = document.querySelector('input[name="scrollType"]:checked').value;
 	}
 
-<<<<<<< Updated upstream
 	// Validate input
-=======
-	// Validate character limits (only for static and scroll then stop)
-	// Scroll continuous allows up to 120 characters
-	if (animation === "static" || animation === "scrolS") {
-		if (isBig === "yes") {
-			// Full screen: max 4 characters
-			if (message.length > 4) {
-				alert('Full screen text can only fit 4 characters');
-				return;
-			}
-		} else {
-			// Top/Bottom: max 10 characters each
-			if (message.length > 10) {
-				alert('Top text can only fit 10 characters');
-				return;
-			}
-			if (message2.length > 10) {
-				alert('Bottom text can only fit 10 characters');
-				return;
-			}
-		}
-	} else if (animation === "scrolC") {
-		// Scroll continuous: allow up to 120 characters total
-		let totalLength = isBig === "no" ? message.length + message2.length + 1 : message.length; // +1 for comma
-		if (totalLength > 120) {
-			alert('Scroll continuous text can only fit 120 characters total');
-			return;
-		}
-	}
-
-	if (isBig === "no")
-	{
-			message = message + "," + message2;
-	}
-
->>>>>>> Stashed changes
 	if (!message)
 	{
 		alert('Please enter a message');
@@ -127,48 +81,6 @@ async function sendMessage()
 	if (response.status != 200)
 	{
 		alert("Failed to connect");
-	}
-	else
-	{
-<<<<<<< Updated upstream
-		send.disabled = true;
-		send.style.cursor = "not-allowed";
-		setTimeout(function(){
-			send.disabled = false;
-			send.style.cursor = "pointer";
-		}, 3000);
-<<<<<<< Updated upstream
-=======
-		
-		// Get scroll speed if animation is scroll
-		let scrollSpeed = "fast"; // default
-		if (animation === "scrolC" || animation === "scrolS") {
-			scrollSpeed = document.querySelector('input[name="scrollSpeed"]:checked').value;
-		}
-		
-		// Send using new ASCII protocol format
->>>>>>> Stashed changes
-		const response = await fetch(`${API_URL}/dashboard/post`,
-		{
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(
-			{
-				"command": animation,
-				"isBig": isBig,
-				"data": message,
-				"scrollSpeed": scrollSpeed
-			})
-		});
-	
-		if (response.status != 200)
-		{
-			alert("Failed to connect");
-		}
-
-=======
-		console.log("Message sent successfully using ASCII protocol");
->>>>>>> Stashed changes
 	}
 }
 
@@ -229,16 +141,11 @@ async function start_timer()
 
     if(sflag)
 	{
-<<<<<<< Updated upstream
-		const message = minutes + ":" + seconds;
-=======
-		// Format time as MM:SS for ASCII protocol (zero-padded)
+		// Format time as MM:SS for ASCII protocol
 		const formattedMinutes = minutes.padStart(2, '0');
 		const formattedSeconds = seconds.padStart(2, '0');
 		const message = formattedMinutes + ":" + formattedSeconds;
 		
-		// Disable button to prevent rapid clicking
->>>>>>> Stashed changes
 		s_timer.disabled = true;
 		s_timer.style.cursor = "not-allowed";
 		setTimeout(function()
@@ -246,34 +153,27 @@ async function start_timer()
 			s_timer.disabled = false;
 			s_timer.style.cursor = "pointer";
 		}, 3000);
-<<<<<<< Updated upstream
-=======
 		
-		// Send timer start command
->>>>>>> Stashed changes
 		const response = await fetch(`${API_URL}/dashboard/post`,
 		{
 			method: 'POST',
 			headers: {"Content-Type": "application/json"},
 			body: JSON.stringify(
 			{
-<<<<<<< Updated upstream
-				"command": "sTimer",
-				"isBig": "yes",
-				"data": message.toString()
-=======
 				"command": "sTimer",  // Maps to command 2001
 				"isBig": "yes",        // Timer uses large font
 				"data": message        // MM:SS format
->>>>>>> Stashed changes
 			})
 		});
 	
 		if (response.status != 200)
 		{
-			alert('Failed to send message');
+			alert('Failed to send timer command');
 		}
-
+		else
+		{
+			console.log("Timer started using ASCII protocol: " + message);
+		}
 	}
 }
 
@@ -408,47 +308,25 @@ async function send_brightness()
 		brightness_btn.disabled = false;
 		brightness_btn.style.cursor = "pointer";
 	}, 3000);
-<<<<<<< Updated upstream
-=======
 	
-	// Send settings command (only brightness, colors empty)
->>>>>>> Stashed changes
 	const response = await fetch(`${API_URL}/dashboard/post`,
 	{
 		method: 'POST',
 		headers: {"Content-Type": "application/json"},
 		body: JSON.stringify(
 		{
-<<<<<<< Updated upstream
 			"command": "settns",
 			"brightness": actual_brightness_value,
 			"tcolor": top_color,
 			"bcolor": bottom_color,
 			"fcolor": full_text_color,
-=======
-			"command": "settns",              // Maps to command 3005
-			"brightness": actual_brightness_value,  // 0-255
-			"tcolor": "",                     // Empty = no change
-			"bcolor": "",                    // Empty = no change
-			"fcolor": "",                    // Empty = no change
->>>>>>> Stashed changes
 		})
 	});
 
 	if (response.status != 200)
 	{
-<<<<<<< Updated upstream
 		alert('Failed to send message');
-=======
-		alert('Failed to send brightness settings');
 	}
-	else
-	{
-		console.log("Brightness settings sent using ASCII protocol");
->>>>>>> Stashed changes
-	}
-
-	
 }
 
 /**

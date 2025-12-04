@@ -1,4 +1,4 @@
-﻿
+
 $http = [System.Net.HttpListener]::new();
 
 $server_port = 8080
@@ -47,20 +47,6 @@ else
 }
 }while($true)
 
-<<<<<<< Updated upstream
-do
-{
-    $baudRate = Read-Host "Enter Baud Rate"
-    if ([string]::IsNullOrWhiteSpace($baudRate) -or $baudRate -match '\D')
-    {
-        Write-Host "Enter a valid Baud rate"
-    }
-else
-{
-    break
-}
-
-=======
 # Ask for baud rate with validation
 do
 {
@@ -83,7 +69,27 @@ else
         Write-Host "Baud rate must be between 1200 and 115200"
     }
 }
->>>>>>> Stashed changes
+do
+{
+$baudInput = Read-Host "Enter Baud Rate"
+if ([string]::IsNullOrWhiteSpace($baudInput) -or $baudInput -match '\D')
+{
+    Write-Host "Invalid input. Enter numbers only."
+}
+else
+{
+    $parsedBaud = [int]::Parse($baudInput)
+    if ($parsedBaud -ge 1200 -and $parsedBaud -le 115200)
+    {
+        $baudRate = $parsedBaud
+        Write-Host "Using baud rate: $baudRate"
+        break
+    }
+    else
+    {
+        Write-Host "Baud rate must be between 1200 and 115200"
+    }
+}
 }while($true)
 
 $url = "http://127.0.0.1:$server_port/";
@@ -125,9 +131,8 @@ function Add-CorsHeaders($response)
     $response.AppendHeader("Access-Control-Allow-Origin", "*")
     $response.AppendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     $response.AppendHeader("Access-Control-Allow-Headers", "Content-Type")
+}
 
-<<<<<<< Updated upstream
-=======
 # Function to convert JSON data to ASCII protocol format
 function ConvertTo-AsciiProtocol($jsonData)
 {
@@ -221,7 +226,7 @@ function ConvertTo-AsciiProtocol($jsonData)
             return "$startChar" + "5001" + "$endChar"  # System status request
         }
     }
->>>>>>> Stashed changes
+
 }
 
 # Main loop
@@ -236,53 +241,23 @@ while ($http.IsListening)
         continue
     }
     
-    # Handle POST requests to /dashboard/post
+# Handle POST requests to /dashboard/post
     if ($context.Request.HttpMethod -eq 'POST' -and $context.Request.RawUrl -eq '/dashboard/post') {
         $FormContent = [System.IO.StreamReader]::new($context.Request.InputStream).ReadToEnd()
         $dataToSend = $FormContent | ConvertFrom-Json
-        $data = ''
-        if($dataToSend.command -eq "pTimer")
-        {
-            $data = "$" + $dataToSend.command + "$"
-        }
-        elseif($dataToSend.command -eq "rTimer")
-        {
-            $data =  "$" + $dataToSend.command  + "$"
-        }
-        elseif($dataToSend.command -eq "resume")
-        {
-            $data = "$" + $dataToSend.command + "$"
-        }
-        elseif($dataToSend.command -eq "tod")
-        {
-            $data =  "$" + $dataToSend.command + "$"
-        }
-        elseif($dataToSend.command -eq "settns")
-        {
-            $data =  "$" + $dataToSend.command + "$" +  "[" + $dataToSend.brightness + ", " +  $dataToSend.tcolor + ", " +  $dataToSend.bcolor + ", " + $dataToSend.fcolor + "]"
-        }
-        elseif($dataToSend.command -eq "custom")
-        {
-            $data =  "$" + $dataToSend.command + "$" + $dataToSend.param + "[" + $dataToSend.data + "]"
-        }
-        else
-        {
-            $data = "$" + $dataToSend.command + "$" + $dataToSend.isBig + "[" + $dataToSend.data + "]"
-        }
-     
+        
+        # Convert JSON to new ASCII protocol format
+        $asciiCommand = ConvertTo-AsciiProtocol -jsonData $dataToSend
+        
         try
         {                                                                                                                      
-            # $sw = [System.Diagnostics.Stopwatch]::StartNew()
-            $out_port_a.WriteLine($data)
-            Write-Host $data
+            $out_port_a.WriteLine($asciiCommand)
+            Write-Host "Sent: $asciiCommand"
             Start-Sleep -Milliseconds 200
-            #$sw.Stop()
-
-            # Write-Host "Execution Time: $($sw.ElapsedMilliseconds) ms"
         }
         catch
         {
-            Write-Host "The port timed out, restart the server or wait for a while and than send omwthing else"
+            Write-Host "The port timed out, restart the server or wait for a while and than send something else"
             $out_port_a.DiscardOutBuffer() # Discard the Output Buffer so as to remove backlog
             Start-Sleep -Milliseconds 300
         }

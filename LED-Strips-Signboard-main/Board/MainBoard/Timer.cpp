@@ -114,7 +114,7 @@ void Timer::updateCountdown()
 
     if (remaining.totalseconds() <= 0)
     {
-      Display::getInstance().displayText("0:00", "", "static", "yes");
+      Display::getInstance().displayText("00:00", "", "static", "yes");
       timerActive = false;
     }
     else
@@ -122,7 +122,8 @@ void Timer::updateCountdown()
       int mins = max(0, remaining.minutes());
       int secs = max(0, remaining.seconds());
       char text[8];
-      sprintf(text, "%d:%02d", mins, secs);
+      // Format as MM:SS (e.g., "05:30")
+      sprintf(text, "%02d:%02d", mins, secs);
       Display::getInstance().displayText(text, "", "static", "yes");
     }
 }
@@ -130,16 +131,11 @@ void Timer::updateCountdown()
 void Timer::updateTimeOfDay()
 {
     DateTime now = rtc.now();
-    // Add 2 minutes offset to correct for RTC being behind
-    // Note: This is a temporary fix - ideally the RTC should be properly synchronized
     int hours = now.hour();
-    int minutes = now.minute() + 2;  // Add 2 minutes to compensate for offset
-    if (minutes >= 60) {
-        minutes -= 60;
-        hours = (hours + 1) % 24;
-    }
+    int minutes = now.minute();
     char text[8];
-    sprintf(text, "%d:%02d", hours, minutes);
+    // Format as HH:MM (e.g., "12:34")
+    sprintf(text, "%02d:%02d", hours, minutes);
     Display::getInstance().displayText(text, "", "static", "yes");
 }
 

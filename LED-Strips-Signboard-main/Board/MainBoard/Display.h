@@ -29,6 +29,21 @@ private:
   
   // Interrupt flag for scrolling operations
   volatile bool scrollInterrupt = false;
+  
+  // Scroll state structure for non-blocking scroll animation
+  struct ScrollState {
+    bool isActive;
+    bool useBigFont;
+    unsigned long previousMillis;
+    unsigned long shift;
+    int scrollSpeed;
+    int totalWidth;
+    int text1Len;
+    int text2Len;
+    int longerTextLen;
+    char text1Copy[121];
+    char text2Copy[121];
+  } scrollState;
  
   // Character drawing helper methods
   int getCharacterWidth7x7(char c);
@@ -38,20 +53,14 @@ private:
   
   // Helper methods for displayText function
   int calculateTextWidth(const char* text, bool useBigFont);
-<<<<<<< Updated upstream
-  void scrollTextContinuous(const char* text1, const char* text2, int totalWidth, bool useBigFont);
-<<<<<<< Updated upstream
-=======
-=======
   void scrollTextContinuous(const char* text1, const char* text2, int totalWidth, bool useBigFont, int scrollSpeed = 50);
->>>>>>> Stashed changes
   void updateScrollAnimation();  // Non-blocking scroll update (call from main loop)
->>>>>>> Stashed changes
   void drawTextLine(const char* text, int textLen, int* charWidths, int startX, int y, uint32_t color, int totalWidth, bool useBigFont);
   void scrollTextAndStop(const char* text1, const char* text2, int totalWidth, bool useBigFont, int scrollSpeed = 50);
   void fadeInText(const char* text1, const char* text2, bool useBigFont);
   void breatheText(const char* text1, const char* text2, bool useBigFont);
   void displayStaticText(const char* text1, const char* text2, bool useBigFont);
+  void displayTextChunked(const char* text1, const char* text2, bool useBigFont, uint32_t color1); // Chunked display for memory optimization
   
 public:
   // Singleton accessor
@@ -78,16 +87,9 @@ public:
   void setBrightness(int brightness);
  
   // Text display methods
-<<<<<<< Updated upstream
-  void displayText(const char* text1, const char* text2, const char* command, const char* displayType);
-<<<<<<< Updated upstream
-=======
-=======
   void displayText(const char* text1, const char* text2, const char* command, const char* displayType, int scrollSpeed = 50);
->>>>>>> Stashed changes
   void updateDisplay();  // Call this from main loop to update animations
   void stopScrollAnimation();    // Stop and clean up scroll (public for command handling)
->>>>>>> Stashed changes
   // Colour management
   void setTopColour(const uint32_t colourHex);
   void setBottomColour(const uint32_t colourHex);
