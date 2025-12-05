@@ -10,8 +10,8 @@ Think of it as a digital billboard that fits on your wall. You can display text,
 
 ### Show Text in Cool Ways
 - **Static text** - Just show some words (small or large font)
-- **Scrolling text** - Make your message scroll across the screen continuously
-- **Scroll and stop** - Scroll from right to left, then stop when it's centered
+- **Scrolling text** - Make your message scroll across the screen continuously (fast or slow speed)
+- **Scroll and stop** - Scroll from right to left, then stop when it's centered (fast or slow speed)
 - **Fade in** - Text smoothly fades in (looks really nice!)
 - **Breathe** - Text pulses like it's breathing (great for attention-grabbing)
 
@@ -102,22 +102,26 @@ The markers are special characters (0x0C to start, 0x0F to end), but you don't n
 
 ### Command Cheat Sheet
 
-#### Text Commands (1001-1010)
+#### Text Commands (1001-1016)
 
 Want to display text? Here are your options:
 
-| Code | What It Does | Example Data | Font Size |
-|------|--------------|--------------|-----------|
-| 1001 | Show static text (small) | `Hello,World` or just `Hello` | Small (7×7) |
-| 1002 | Show static text (large) | `HELLO` | Large (15×15) |
-| 1003 | Scroll continuously (small) | `Long message here` | Small |
-| 1004 | Scroll continuously (large) | `SCROLLING` | Large |
-| 1005 | Scroll then stop (small) | `Message` | Small |
-| 1006 | Scroll then stop (large) | `TEXT` | Large |
-| 1007 | Fade in (small) | `Fade,In` | Small |
-| 1008 | Fade in (large) | `FADE` | Large |
-| 1009 | Breathe effect (small) | `Breathe,Text` | Small |
-| 1010 | Breathe effect (large) | `BREATHE` | Large |
+| Code | What It Does | Example Data | Font Size | Speed |
+|------|--------------|--------------|-----------|-------|
+| 1001 | Show static text (small) | `Hello,World` or just `Hello` | Small (7×7) | - |
+| 1002 | Show static text (large) | `HELLO` | Large (15×15) | - |
+| 1003 | Scroll continuously (small) | `Long message here` | Small | Slow |
+| 1004 | Scroll continuously (large) | `SCROLLING` | Large | Slow |
+| 1005 | Scroll then stop (small) | `Message` | Small | Slow |
+| 1006 | Scroll then stop (large) | `TEXT` | Large | Slow |
+| 1007 | Fade in (small) | `Fade,In` | Small | - |
+| 1008 | Fade in (large) | `FADE` | Large | - |
+| 1009 | Breathe effect (small) | `Breathe,Text` | Small | - |
+| 1010 | Breathe effect (large) | `BREATHE` | Large | - |
+| 1013 | Scroll continuously (small) | `Long message here` | Small | Fast |
+| 1014 | Scroll continuously (large) | `SCROLLING` | Large | Fast |
+| 1015 | Scroll then stop (small) | `Message` | Small | Fast |
+| 1016 | Scroll then stop (large) | `TEXT` | Large | Fast |
 
 **Pro tip:** For small font commands, you can use a comma to split text into two rows. "Hello,World" shows "Hello" on top and "World" on bottom.
 
@@ -289,7 +293,7 @@ We limited characters to 3 pixels wide so text fits better on the 60-pixel displ
 - [@ChanndKaleka](https://github.com/ChanndKaleka) - Text display and font implementation
 
 ### Recent Improvements
-- [@Robert-beep773](https://github.com/Robert-beep773) - Cleaned up the code, wrote documentation, and made it easier to understand
+- [@Robert-beep773](https://github.com/Robert-beep773) - Code refactoring, comprehensive documentation, protocol standardization, memory optimizations, fast scroll implementation, error handling improvements
 
 ## License
 
@@ -306,10 +310,11 @@ This is part of a TRU Project Course project. Check with your course guidelines 
 
 ### Serial Communication Not Working?
 
-- **Baud rate** - Make sure it's set to 9600
-- **COM port** - Is the right port selected in Arduino IDE?
+- **Baud rate** - Default is 9600, but configurable (range: 1200-115200). Arduino waits for baud rate on startup.
+- **COM port** - Is the right port selected in Arduino IDE and server?
+- **Server connection** - Make sure the PowerShell server sends baud rate to Arduino
 - **Cable** - Try a different USB cable
-- **Too many commands?** - Slow down! Sending commands too fast can cause issues
+- **Too many commands?** - Slow down! Sending commands too fast can cause issues (wait 200ms between commands)
 
 ### Text Getting Cut Off?
 

@@ -20,14 +20,18 @@ TEXT DISPLAY COMMANDS:
 ----------------------
 1001 - Static Text (Small Font - Two Rows)
 1002 - Static Text (Large Font - Single Row)
-1003 - Scroll Text Continuous (Small Font)
-1004 - Scroll Text Continuous (Large Font)
-1005 - Scroll Text and Stop (Small Font)
-1006 - Scroll Text and Stop (Large Font)
+1003 - Scroll Text Continuous (Small Font) - SLOW
+1004 - Scroll Text Continuous (Large Font) - SLOW
+1005 - Scroll Text and Stop (Small Font) - SLOW
+1006 - Scroll Text and Stop (Large Font) - SLOW
 1007 - Fade In Text (Small Font)
 1008 - Fade In Text (Large Font)
 1009 - Breathe Text (Small Font)
 1010 - Breathe Text (Large Font)
+1013 - Scroll Text Continuous (Small Font) - FAST
+1014 - Scroll Text Continuous (Large Font) - FAST
+1015 - Scroll Text and Stop (Small Font) - FAST
+1016 - Scroll Text and Stop (Large Font) - FAST
 
 TIMER COMMANDS:
 --------------
@@ -51,6 +55,7 @@ CUSTOM PIXEL COMMANDS:
 4001 - Set Custom Pixel (Format: X,Y,Color)
 4002 - Clear All Pixels
 4003 - Clear Custom Pixel (Format: X,Y)
+4004 - Set Custom Pixel Row (Format: row,col1,color1,col2,color2,...)
 
 SYSTEM COMMANDS:
 ---------------
@@ -77,6 +82,7 @@ DATA FORMATS:
 Timer Data: MM:SS (e.g., "05:30")
 Color Data: RRGGBB (e.g., "FF0000" for red)
 Pixel Data: X,Y,RRGGBB (e.g., "10,5,FF0000")
+Pixel Row Data: row,col1,color1,col2,color2,... (e.g., "7,0,FF0000,1,00FF00,2,0000FF")
 Settings Data: Brightness,TopColor,BottomColor,FullColor (comma separated)
 
 IMPLEMENTATION NOTES:
@@ -84,17 +90,32 @@ IMPLEMENTATION NOTES:
 - All commands must start with ASCII 12 and end with ASCII 15
 - Command codes are always 4 digits
 - Data is optional for some commands
-- Maximum data length: 100 characters
-- Baud rate: Fixed at 9600
+- Maximum data length: 150 characters (MAX_DATA_LENGTH)
+- Raw input buffer: 100 characters (numRawChar)
+- Text length limits: 30 chars (small font), 10 chars (large font) for static/fade/breathe
+- Scroll commands support up to 120 characters
+- Baud rate: Configurable (default 9600, Arduino waits for baud rate input on startup)
 - Serial timeout: 1000ms
-- Buffer size: 150 characters (increased from 90)
+- Write buffer size: 65536 bytes (PowerShell server)
+- Write timeout: 1200ms (PowerShell server)
 
 EXAMPLES:
 ========
-Static text: 121001Hello World15
-Scroll text: 121003Hello World15
+Static text (small): 121001Hello,World15
+Static text (large): 121002HELLO15
+Scroll text (slow): 121003Hello World15
+Scroll text (fast): 121013Hello World15
 Start timer: 12200105:3015
 Set brightness: 12300112815
 Custom pixel: 12400110,5,FF000015
+Custom pixel row: 1240047,0,FF0000,1,00FF00,2,0000FF15
 System status: 12500115
 Error response: 129001Invalid Command15
+
+NOTES:
+======
+- Fast scroll commands (1013-1016) use 50ms frame delay
+- Slow scroll commands (1003-1006) use 100ms frame delay
+- Small font supports two rows separated by comma (e.g., "Top,Bottom")
+- Large font displays single line, centered
+- Custom pixel row command (4004) is optimized for bulk updates

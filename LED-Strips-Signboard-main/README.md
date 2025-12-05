@@ -4,13 +4,14 @@
 The LED Strips Sign Board is a **web and remote-controlled scoreboard** powered by an **Arduino Mega**. It features a 15×60 pixel LED matrix display that can show text messages, timers, custom pixel art, and various animations. The system is controlled through a modern web interface or via IR remote control.
 
 ## Key Features
-- **Text Display** – Display static, scrolling, fade-in, and breathe animations with two font sizes (7×7 and 15×15)
-- **Timer Functionality** – Countdown timer, stopwatch, and time-of-day display
-- **Custom Pixel Drawing** – Draw custom 15×60 pixel images directly on the display
+- **Text Display** – Display static, scrolling (fast/slow), fade-in, and breathe animations with two font sizes (7×7 and 15×15)
+- **Timer Functionality** – Countdown timer, stopwatch, and time-of-day display with full controls (start, pause, resume, reset, stop)
+- **Custom Pixel Drawing** – Draw custom 15×60 pixel images directly on the display with optimized row-based updates
 - **Web Interface** – Modern multi-page dashboard for easy control
 - **IR Remote Control** – Wireless control via infrared remote
-- **Color Customization** – Adjustable brightness and RGB color settings
+- **Color Customization** – Adjustable brightness (0-255) and RGB color settings for top, bottom, and full-screen text
 - **Real-time Clock** – DS3231 RTC module for accurate timekeeping
+- **Memory Optimized** – Carefully optimized for Arduino Mega's 8KB SRAM with stack allocation and bounded buffers
 
 ## System Architecture
 
@@ -54,8 +55,10 @@ The LED Strips Sign Board is a **web and remote-controlled scoreboard** powered 
 3. When prompted:
    - Enter a server port (default: 8080)
    - Enter the COM port number (e.g., 3 for COM3)
-4. Open **Dashboard.html** in a web browser
-5. The interface should connect automatically to the server
+   - Enter the baud rate (default: 9600, range: 1200-115200)
+4. The server will connect to Arduino and send the baud rate
+5. Open **Dashboard.html** in a web browser
+6. The interface should connect automatically to the server
 
 ### Hardware Wiring
 - **LED Strips**: Connect to digital pins 23-37 (see `Display.h` for pin mapping)
@@ -72,10 +75,11 @@ The LED Strips Sign Board is a **web and remote-controlled scoreboard** powered 
    - **Full Screen**: Single-line display (large font)
 4. Choose animation style:
    - **Static**: Fixed text display
-   - **Scroll**: Continuous or stop-after-scroll
+   - **Scroll**: Continuous or stop-after-scroll (with fast/slow speed options)
    - **Fade In**: Text fades in gradually
    - **Breathe**: Text pulses with brightness
-5. Click **Display Message**
+5. For scroll animations, select scroll speed (fast or slow)
+6. Click **Display Message**
 
 ### Timer Functions
 1. Open the **Timer** page
@@ -91,6 +95,7 @@ The LED Strips Sign Board is a **web and remote-controlled scoreboard** powered 
 2. Click pixels on the 15×60 grid to draw
 3. Use the color picker to select colors
 4. Click **Send to Display** to render on the LED matrix
+5. The system uses optimized row-based updates for better performance
 
 ### Settings
 1. Open the **Settings** page
@@ -155,7 +160,8 @@ LED-Strips-Signboard-main/
 ### Arduino Not Responding
 - Check USB cable connection
 - Verify correct COM port in server
-- Ensure baud rate is 9600
+- Ensure baud rate matches (default: 9600, but configurable)
+- Arduino waits for baud rate input on startup - ensure server sends it
 - Try resetting Arduino (use ArduinoResetter.exe if needed)
 
 ### Web Interface Not Connecting
@@ -171,9 +177,12 @@ LED-Strips-Signboard-main/
 - Test individual strips if some don't work
 
 ### Memory Errors
-- Reduce text length (max 30 chars small font, 10 chars large font)
+- Reduce text length:
+  - Static/Fade/Breathe: max 30 chars (small font), 10 chars (large font)
+  - Scroll: up to 120 chars supported
 - Clear display before sending new commands
 - Avoid rapid command sending (wait 200ms between commands)
+- Use scroll animations for longer messages instead of static text
 
 ## Technical Specifications
 
@@ -184,8 +193,11 @@ LED-Strips-Signboard-main/
 - **Font Sizes**: 7×7 (small) and 15×15 (large)
 - **Color Depth**: 24-bit RGB (8 bits per channel)
 - **Brightness Range**: 0-255 (0-100% in UI)
-- **Max Text Length**: 30 chars (small font), 10 chars (large font)
-- **Scroll Speed**: Configurable (default 100ms per frame)
+- **Max Text Length**: 
+  - Static/Fade/Breathe: 30 chars (small font), 10 chars (large font)
+  - Scroll: 120 chars (both fonts)
+- **Scroll Speed**: Fast (50ms per frame) or Slow (100ms per frame)
+- **Buffer Sizes**: 150 chars (MAX_DATA_LENGTH), 100 chars (raw input)
 
 ## Development
 
@@ -209,12 +221,15 @@ LED-Strips-Signboard-main/
 [Add your license information here]
 
 ## Authors
-Developed by:
+### Original Development Team:
 - [@AhmadAzeez999](https://github.com/AhmadAzeez999) (Website, Webserver, & Webserver-to-Board Communication)
 - [@WeziKaonga](https://github.com/WeziKaonga) (Remote Communication & Display)
 - [@Cipher-935](https://github.com/Cipher-935) (Bluetooth Communication, Website Backend, & Webserver-to-Board Communication)
 - [@Bhu77ar](https://github.com/Bhu77ar) (Font Design & Implementation)
 - [@ChanndKaleka](https://github.com/ChanndKaleka) (Text Display & Font Implementation)
+
+### Recent Improvements:
+- [@Robert-beep773](https://github.com/Robert-beep773) (Code refactoring, documentation, protocol standardization, memory optimizations, fast scroll implementation, error handling improvements)
 
 ## Additional Documentation
 - `Communication_Protocol_Documentation.txt` - Complete protocol reference

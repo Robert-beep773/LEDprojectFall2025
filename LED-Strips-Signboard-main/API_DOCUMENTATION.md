@@ -39,13 +39,13 @@ Sends commands to the Arduino display.
 
 #### Text Display Commands
 
-| Command | Description | Font Size | Data Format |
-|---------|-------------|-----------|-------------|
-| `static` | Static text display | Small/Large | Text string |
-| `scrolC` | Continuous scroll | Small/Large | Text string |
-| `scrolS` | Scroll and stop | Small/Large | Text string |
-| `fadeIn` | Fade in animation | Small/Large | Text string |
-| `breath` | Breathe animation | Small/Large | Text string |
+| Command | Description | Font Size | Data Format | Notes |
+|---------|-------------|-----------|-------------|------|
+| `static` | Static text display | Small/Large | Text string | Max 30 chars (small), 10 chars (large) |
+| `scrolC` | Continuous scroll | Small/Large | Text string | Supports fast/slow speed, up to 120 chars |
+| `scrolS` | Scroll and stop | Small/Large | Text string | Supports fast/slow speed, up to 120 chars |
+| `fadeIn` | Fade in animation | Small/Large | Text string | Max 30 chars (small), 10 chars (large) |
+| `breath` | Breathe animation | Small/Large | Text string | Max 30 chars (small), 10 chars (large) |
 
 **Example Request:**
 ```json
@@ -56,9 +56,21 @@ Sends commands to the Arduino display.
 }
 ```
 
+**Example Request with Scroll Speed:**
+```json
+{
+  "command": "scrolC",
+  "isBig": "no",
+  "data": "Long scrolling message",
+  "scrollSpeed": "fast"
+}
+```
+
 **Arduino Protocol Conversion:**
 - `static` + `isBig: "yes"` → `121002Hello World15`
 - `static` + `isBig: "no"` → `121001Top,Bottom15`
+- `scrolC` + `isBig: "yes"` + `scrollSpeed: "fast"` → `121014Message15`
+- `scrolC` + `isBig: "yes"` + `scrollSpeed: "slow"` → `121004Message15`
 
 #### Timer Commands
 
@@ -212,27 +224,31 @@ The PowerShell server converts JSON commands to ASCII protocol format:
 
 ### Command Code Mapping
 
-| JSON Command | Font | Arduino Code |
-|--------------|------|--------------|
-| `static` | Small | `1001` |
-| `static` | Large | `1002` |
-| `scrolC` | Small | `1003` |
-| `scrolC` | Large | `1004` |
-| `scrolS` | Small | `1005` |
-| `scrolS` | Large | `1006` |
-| `fadeIn` | Small | `1007` |
-| `fadeIn` | Large | `1008` |
-| `breath` | Small | `1009` |
-| `breath` | Large | `1010` |
-| `sTimer` | - | `2001` |
-| `pTimer` | - | `2002` |
-| `resume` | - | `2003` |
-| `rTimer` | - | `2004` |
-| `tod` | - | `2006` |
-| `settns` | - | `3005` |
-| `custom` (start) | - | `4002` |
-| `custom` (single) | - | `4001` |
-| `custom` (row) | - | `4004` |
+| JSON Command | Font | Scroll Speed | Arduino Code |
+|--------------|------|--------------|--------------|
+| `static` | Small | - | `1001` |
+| `static` | Large | - | `1002` |
+| `scrolC` | Small | Slow | `1003` |
+| `scrolC` | Large | Slow | `1004` |
+| `scrolC` | Small | Fast | `1013` |
+| `scrolC` | Large | Fast | `1014` |
+| `scrolS` | Small | Slow | `1005` |
+| `scrolS` | Large | Slow | `1006` |
+| `scrolS` | Small | Fast | `1015` |
+| `scrolS` | Large | Fast | `1016` |
+| `fadeIn` | Small | - | `1007` |
+| `fadeIn` | Large | - | `1008` |
+| `breath` | Small | - | `1009` |
+| `breath` | Large | - | `1010` |
+| `sTimer` | - | - | `2001` |
+| `pTimer` | - | - | `2002` |
+| `resume` | - | - | `2003` |
+| `rTimer` | - | - | `2004` |
+| `tod` | - | - | `2006` |
+| `settns` | - | - | `3005` |
+| `custom` (start) | - | - | `4002` |
+| `custom` (single) | - | - | `4001` |
+| `custom` (row) | - | - | `4004` |
 
 ---
 
@@ -338,7 +354,9 @@ This allows the web interface to make requests from any origin.
 ## Serial Communication
 
 ### Baud Rate
-- **Fixed**: 9600 baud
+- **Configurable**: Default 9600, range 1200-115200
+- **Arduino Behavior**: Waits for baud rate input on startup
+- **Server Behavior**: Sends baud rate to Arduino before switching connection
 - **Data Bits**: 8
 - **Parity**: None
 - **Stop Bits**: 1
@@ -364,8 +382,9 @@ All messages sent to Arduino end with newline (`\n`).
 ### Serial Communication Issues
 1. Verify correct COM port
 2. Check Arduino is connected and powered
-3. Verify baud rate is 9600
-4. Check serial port isn't in use by another program
+3. Verify baud rate matches (default 9600, but configurable)
+4. Ensure server sends baud rate to Arduino (Arduino waits for it on startup)
+5. Check serial port isn't in use by another program
 
 ### Command Not Working
 1. Check browser console for errors

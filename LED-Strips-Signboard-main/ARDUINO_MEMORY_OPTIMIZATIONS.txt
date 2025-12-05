@@ -1,109 +1,172 @@
 # Arduino Memory Optimizations for LED Signboard
 
 ## Overview
-This document outlines the memory optimizations implemented to prevent crashes on memory-constrained Arduino microcontrollers.
+This document outlines the memory optimizations implemented to prevent crashes on memory-constrained Arduino microcontrollers. The Arduino Mega 2560 has 8 KB of SRAM, which requires careful memory management for a system handling 900 LEDs, multiple animations, and serial communication.
 
 ## Problem Addressed
 The original code was prone to crashes when receiving large amounts of data or processing complex operations due to:
 - Large buffer allocations
-- Heap memory usage
+- Heap memory usage (dynamic allocation)
 - Insufficient bounds checking
 - Rapid data transmission
+- Memory fragmentation from String operations
 
 ## Optimizations Implemented
 
-### 1. Buffer Size Reductions
+### 1. Buffer Size Management
 **File**: `MainBoard.ino`
-- **Buffer Size**: Reduced from 150 to 100 characters
-- **Max Data Length**: Reduced from 100 to 50 characters
-- **Reason**: Prevents buffer overflow on memory-constrained Arduino
+- **MAX_DATA_LENGTH**: Set to 150 characters (supports 120 chars + overhead)
+- **numRawChar buffer**: Reduced to 100 characters
+- **Reason**: Prevents buffer overflow while maintaining functionality
 
 ### 2. Text Length Limits
 **File**: `MainBoard.ino` - `processCommand()` function
-- **Small Font Text**: Limited to 30 characters maximum
-- **Large Font Text**: Limited to 10 characters maximum
-- **Reason**: Prevents memory allocation failures during text processing
+- **Small Font Text** (static/fade/breathe): Limited to 30 characters maximum
+- **Large Font Text** (static/fade/breathe): Limited to 10 characters maximum
+- **Scroll Commands**: Support up to 120 characters
+- **Reason**: Prevents memory allocation failures during text processing and ensures smooth operation
 
 ### 3. Memory Allocation Strategy
-**File**: `Display.cpp` - `scrollTextContinuous()` function
+**File**: `Display.cpp` - `scrollTextContinuous()` and related functions
 - **Before**: Dynamic heap allocation with `new char[]`
 - **After**: Stack allocation with fixed-size arrays
 - **Buffer Size**: Reduced from 200 to 50 characters per text string
-- **Reason**: Stack allocation is more reliable and doesn't fragment memory
+- **Reason**: Stack allocation is more reliable, doesn't fragment memory, and is automatically cleaned up
 
 ### 4. Input Validation Improvements
 **File**: `Display.cpp` - `displayCustomPixels()` function
 - **Input Length**: Reduced from 1000 to 200 characters
-- **Reason**: Prevents processing of excessively large custom pixel data
+- **Reason**: Prevents processing of excessively large custom pixel data that could cause crashes
 
 ### 5. Communication Timing
 **File**: `custom.js`
 - **Pixel Delay**: Increased from 100ms to 200ms between pixels
 - **Chunk Delay**: Increased from 500ms to 800ms between chunks
-- **Reason**: Gives Arduino more time to process each command
+- **Reason**: Gives Arduino more time to process each command and prevents command queue overflow
 
 ### 6. Minimal Logging
 **File**: `MainBoard.ino` - `parseInput()` function
 - **Before**: Detailed logging with full command strings
 - **After**: Simple "RX" message
-- **Reason**: Reduces memory usage and processing overhead
+- **Reason**: Reduces memory usage and processing overhead, prevents serial buffer overflow
+
+### 7. Serial Buffer Management
+**File**: `MainBoard.ino` - `sendSuccessResponse()` and `sendErrorResponse()`
+- **Buffer Space Checking**: Added checks before sending responses
+- **Skip Response**: If buffer is >75% full, skip response to prevent blocking
+- **Reason**: Prevents system hangs from serial buffer overflow
+
+### 8. String Operation Reduction
+**File**: `MainBoard.ino` - Custom pixel row command (4004)
+- **Zero String Operations**: Direct pointer manipulation for parsing
+- **Reason**: Eliminates String object creation and reduces memory fragmentation
 
 ## Memory Usage Comparison
 
 ### Before Optimizations:
-- Buffer: 150 characters
+- Buffer: 150+ characters (variable)
 - Text processing: Up to 200 characters per string
 - Custom pixels: Up to 1000 character input
 - Memory allocation: Dynamic heap allocation
 - Communication: Rapid-fire pixel updates
+- Logging: Verbose debug messages
+- String operations: Extensive use of String class
 
 ### After Optimizations:
-- Buffer: 100 characters
-- Text processing: 30-50 characters maximum
+- Buffer: 100-150 characters (fixed, bounded)
+- Text processing: 30-50 characters maximum (bounded)
 - Custom pixels: 200 character input limit
-- Memory allocation: Stack allocation
+- Memory allocation: Stack allocation (no heap)
 - Communication: Delayed pixel updates with 200ms+ delays
+- Logging: Minimal ("RX" only)
+- String operations: Minimized, direct char array manipulation where possible
+
+## Memory Usage Breakdown
+
+### SRAM Usage (Arduino Mega 2560 - 8 KB total):
+- **Frame Buffer**: ~3.6 KB (15×60×4 bytes = 3,600 bytes)
+- **Scroll State**: ~250 bytes
+- **Serial Buffer**: ~100 bytes (Arduino default)
+- **Stack Variables**: ~1-2 KB (local variables, function calls)
+- **Global Variables**: ~500 bytes
+- **Total Estimated**: ~5-6 KB (within 8 KB limit with safety margin)
+
+### Flash Usage:
+- **Program Code**: ~50-70 KB (depends on features enabled)
+- **Font Data**: ~20-30 KB (stored in PROGMEM)
+- **Total**: Well within 256 KB limit
 
 ## Benefits
 
 1. **Stability**: Eliminates memory allocation failures
 2. **Reliability**: Prevents buffer overflow crashes
-3. **Performance**: Faster processing with smaller data sets
-4. **Compatibility**: Works better with memory-constrained Arduino boards
+3. **Performance**: Faster processing with smaller, bounded data sets
+4. **Compatibility**: Works reliably with memory-constrained Arduino boards
+5. **Predictability**: Fixed memory footprint, no fragmentation
+6. **Responsiveness**: Non-blocking operations prevent system hangs
 
 ## Usage Guidelines
 
 ### For Text Display:
-- Keep small font messages under 30 characters
-- Keep large font messages under 10 characters
+- Keep small font messages under 30 characters (static/fade/breathe)
+- Keep large font messages under 10 characters (static/fade/breathe)
+- Scroll commands can handle up to 120 characters
 - Use shorter messages for better performance
+- Prefer scroll animations for longer messages
 
 ### For Custom Pixels:
 - Limit custom pixel drawings to reasonable sizes
 - Allow time between pixel updates (200ms+ delays)
+- Use row-based updates (command 4004) for bulk operations
 - Clear display before sending new pixel data
+- Avoid sending more than 200 characters of pixel data at once
 
 ### For General Use:
-- Avoid rapid-fire commands
+- Avoid rapid-fire commands (wait 200ms+ between commands)
 - Allow processing time between operations
 - Monitor Arduino serial output for error messages
+- Use appropriate command for message length (scroll for long text)
+- Clear display when switching between different display modes
 
 ## Error Handling
 
 The optimized code includes improved error handling:
-- Input length validation
-- Memory allocation checks
+- Input length validation (prevents buffer overflow)
+- Memory allocation checks (stack allocation, no failures)
 - Graceful failure with error messages
-- Automatic cleanup of resources
+- Automatic cleanup of resources (stack variables)
+- Buffer space checking before serial operations
 
 ## Testing Recommendations
 
-1. Test with various text lengths to ensure limits work
+1. Test with various text lengths to ensure limits work correctly
 2. Test custom pixel drawing with different sizes
 3. Monitor Arduino serial output during operation
 4. Test rapid command sequences to verify stability
 5. Test with power cycling to ensure reliable startup
+6. Test buffer overflow protection with very long inputs
+7. Test serial buffer management under high load
+8. Verify memory usage stays within limits during extended operation
+
+## Technical Details
+
+### Stack vs Heap Allocation:
+- **Stack**: Automatic memory management, faster, no fragmentation, limited size
+- **Heap**: Manual management, slower, can fragment, larger available space
+- **Choice**: Stack allocation for predictable, bounded operations
+
+### Buffer Sizing Strategy:
+- **MAX_DATA_LENGTH (150)**: Allows for 120 char messages + protocol overhead
+- **numRawChar (100)**: Sufficient for most commands, prevents overflow
+- **Text limits (30/10)**: Based on display width and memory constraints
+- **Scroll limit (120)**: Allows longer messages with scrolling animation
+
+### Frame Buffer:
+- **Size**: 15 rows × 60 columns × 4 bytes = 3,600 bytes
+- **Type**: uint32_t (32-bit RGB color)
+- **Location**: Static global array (permanent allocation)
+- **Optimization**: Direct memory access, no dynamic allocation
 
 ## Conclusion
 
-These optimizations significantly improve the stability and reliability of the LED signboard system on memory-constrained Arduino microcontrollers while maintaining full functionality.
+These optimizations significantly improve the stability and reliability of the LED signboard system on memory-constrained Arduino microcontrollers while maintaining full functionality. The system now operates within predictable memory bounds and handles edge cases gracefully.

@@ -104,12 +104,15 @@ START CMD   DATA  END
 ```
 
 **Serial Settings:**
-- Baud Rate: 9600 (fixed)
+- Baud Rate: Configurable (default 9600, range 1200-115200)
+- Arduino waits for baud rate input on startup
+- Server sends baud rate before switching connection
 - Data Bits: 8
 - Parity: None
 - Stop Bits: 1
-- Write Buffer: 65536 bytes
-- Write Timeout: 1200ms
+- Write Buffer: 65536 bytes (PowerShell server)
+- Write Timeout: 1200ms (PowerShell server)
+- Read Timeout: 1000ms (Arduino)
 
 ### 3. Web Interface
 
@@ -262,9 +265,11 @@ class Timer {
 
 ### Command Categories
 
-1. **Text Display (1001-1010)**
-   - Static, scroll, fade, breathe animations
+1. **Text Display (1001-1016)**
+   - Static, scroll (fast/slow), fade, breathe animations
    - Small (7×7) and large (15×15) fonts
+   - Fast scroll commands (1013-1016) use 50ms frame delay
+   - Slow scroll commands (1003-1006) use 100ms frame delay
 
 2. **Timer (2001-2006)**
    - Start, pause, resume, reset
@@ -275,8 +280,10 @@ class Timer {
    - Colors (RRGGBB hex format)
 
 4. **Custom Pixels (4001-4004)**
-   - Individual pixel control
-   - Row-based updates
+   - Individual pixel control (4001)
+   - Clear all pixels (4002)
+   - Clear single pixel (4003)
+   - Row-based bulk updates (4004) - optimized for performance
 
 5. **System (5001-5004)**
    - Status, reset, clear, default message
@@ -329,18 +336,21 @@ class Timer {
 ### Memory Usage
 
 **SRAM Usage:**
-- Frame buffer: ~3.6 KB (15×60×4 bytes)
+- Frame buffer: ~3.6 KB (15×60×4 bytes = 3,600 bytes)
 - Scroll state: ~250 bytes
-- Serial buffer: ~100 bytes
-- Stack: ~1-2 KB
-- **Total**: ~5-6 KB (within 8 KB limit)
+- Serial buffer: ~100 bytes (Arduino default)
+- Stack variables: ~1-2 KB (local variables, function calls)
+- Global variables: ~500 bytes
+- **Total**: ~5-6 KB (within 8 KB limit with safety margin)
 
 **Optimization Strategies:**
-- Stack allocation (no heap)
-- Fixed-size buffers
-- Text length limits
-- Minimal logging
+- Stack allocation (no heap, prevents fragmentation)
+- Fixed-size buffers (MAX_DATA_LENGTH: 150, numRawChar: 100)
+- Text length limits (30 chars small font static/fade/breathe, 10 chars large font static/fade/breathe, 120 chars scroll)
+- Minimal logging (reduced to "RX" message)
 - Reuse buffers
+- Direct char array manipulation (minimize String operations)
+- Buffer space checking before serial operations
 
 ## Error Handling
 
@@ -381,10 +391,12 @@ class Timer {
 ## Performance Characteristics
 
 ### Display Update Rate
-- **Scroll Animation**: ~10 FPS (100ms per frame)
+- **Scroll Animation (Slow)**: ~10 FPS (100ms per frame)
+- **Scroll Animation (Fast)**: ~20 FPS (50ms per frame)
 - **Fade Animation**: Variable (depends on fade duration)
 - **Static Display**: Instant
 - **Timer Update**: 1 Hz (once per second)
+- **Breathe Animation**: Variable (smooth brightness pulsing)
 
 ### Serial Communication
 - **Baud Rate**: 9600 bps
